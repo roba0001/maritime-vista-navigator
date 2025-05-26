@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -29,7 +28,7 @@ const chokepointIcon = new L.Icon({
 interface Chokepoint {
   id: string;
   name: string;
-  coordinates: [number, number]; // [lat, lng]
+  coordinates: [number, number];
   nearbyPorts: string[];
   tradeVolume: string;
   geopoliticalNotes: string;
@@ -55,15 +54,15 @@ const MapController: React.FC<{ center: [number, number]; zoom: number }> = ({ c
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0]);
-  const [mapZoom, setMapZoom] = useState(2);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([51.505, -0.09]);
+  const [mapZoom, setMapZoom] = useState(13);
 
   // Gibraltar chokepoint
   const chokepoints: Chokepoint[] = [
     {
       id: 'strait_of_gibraltar',
       name: 'Strait of Gibraltar',
-      coordinates: [36.1408, -5.3536], // Gibraltar coordinates
+      coordinates: [36.1408, -5.3536],
       nearbyPorts: ['Algeciras', 'Tangier', 'Ceuta'],
       tradeVolume: '~100,000 vessels/year',
       geopoliticalNotes: 'Key gateway between Atlantic and Mediterranean, controlled by Spain and Morocco',
@@ -75,14 +74,14 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     setSelectedChokepoint(chokepoint);
     setIsZoomed(true);
     setMapCenter(chokepoint.coordinates);
-    setMapZoom(10);
+    setMapZoom(15);
   };
 
   const handleZoomOut = () => {
     setIsZoomed(false);
     setSelectedChokepoint(null);
-    setMapCenter([20, 0]);
-    setMapZoom(2);
+    setMapCenter([51.505, -0.09]);
+    setMapZoom(13);
   };
 
   const getRoleColor = (role: string) => {
