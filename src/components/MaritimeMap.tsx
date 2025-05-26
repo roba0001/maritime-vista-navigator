@@ -22,7 +22,9 @@ interface MaritimeMapProps {
 
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
 
+  // Only Gibraltar chokepoint
   const chokepoints: Chokepoint[] = [
     {
       id: 'strait_of_gibraltar',
@@ -32,53 +34,18 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
       tradeVolume: '~100,000 vessels/year',
       geopoliticalNotes: 'Key gateway between Atlantic and Mediterranean, controlled by Spain and Morocco',
       strategicImportance: 'Critical'
-    },
-    {
-      id: 'suez_canal',
-      name: 'Suez Canal',
-      coordinates: { x: 57, y: 52 },
-      nearbyPorts: ['Port Said', 'Suez', 'Alexandria'],
-      tradeVolume: '~19,000 vessels/year',
-      geopoliticalNotes: 'Vital route connecting Europe and Asia, controlled by Egypt',
-      strategicImportance: 'Critical'
-    },
-    {
-      id: 'strait_of_hormuz',
-      name: 'Strait of Hormuz',
-      coordinates: { x: 65, y: 55 },
-      nearbyPorts: ['Dubai', 'Bandar Abbas', 'Fujairah'],
-      tradeVolume: '~21% of global petroleum liquids',
-      geopoliticalNotes: 'Critical oil chokepoint, potential for Iran to disrupt traffic',
-      strategicImportance: 'Critical'
-    },
-    {
-      id: 'strait_of_malacca',
-      name: 'Strait of Malacca',
-      coordinates: { x: 78, y: 62 },
-      nearbyPorts: ['Singapore', 'Port Klang', 'Johor'],
-      tradeVolume: '~25% of traded goods globally',
-      geopoliticalNotes: 'Major trade route between Indian and Pacific Oceans',
-      strategicImportance: 'Critical'
-    },
-    {
-      id: 'panama_canal',
-      name: 'Panama Canal',
-      coordinates: { x: 25, y: 62 },
-      nearbyPorts: ['Balboa', 'Cristóbal', 'Manzanillo'],
-      tradeVolume: '~14,000 vessels/year',
-      geopoliticalNotes: 'Key connection between Atlantic and Pacific, operated by Panama',
-      strategicImportance: 'High'
-    },
-    {
-      id: 'bab_el_mandeb',
-      name: 'Bab el-Mandeb Strait',
-      coordinates: { x: 61, y: 67 },
-      nearbyPorts: ['Aden', 'Djibouti', 'Assab'],
-      tradeVolume: '~4.8 million barrels/day',
-      geopoliticalNotes: 'Strategic route to Suez Canal, affected by regional conflicts',
-      strategicImportance: 'High'
     }
   ];
+
+  const handleChokepointClick = (chokepoint: Chokepoint) => {
+    setSelectedChokepoint(chokepoint);
+    setIsZoomed(true);
+  };
+
+  const handleZoomOut = () => {
+    setIsZoomed(false);
+    setSelectedChokepoint(null);
+  };
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -102,54 +69,89 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     <div className="h-screen flex bg-slate-900">
       {/* Map Area */}
       <div className="flex-1 relative">
-        {/* Simple World Map Container */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-teal-900">
-          {/* Simple world map representation using CSS */}
-          <div className="relative w-full h-full overflow-hidden">
-            {/* Ocean background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-800 to-blue-900" />
-            
-            {/* Simple continent shapes using CSS */}
-            <div className="absolute inset-0">
-              {/* North America */}
-              <div className="absolute bg-green-700 rounded-3xl" 
-                   style={{ left: '8%', top: '20%', width: '20%', height: '25%', transform: 'rotate(-10deg)' }} />
+        {/* Map Container */}
+        <div className="absolute inset-0">
+          {!isZoomed ? (
+            // World Map View
+            <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-teal-900">
+              {/* Ocean background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-800 to-blue-900" />
               
-              {/* South America */}
-              <div className="absolute bg-green-600 rounded-2xl" 
-                   style={{ left: '22%', top: '45%', width: '12%', height: '30%', transform: 'rotate(10deg)' }} />
-              
-              {/* Europe */}
-              <div className="absolute bg-green-800 rounded-xl" 
-                   style={{ left: '45%', top: '25%', width: '8%', height: '15%' }} />
-              
-              {/* Africa */}
-              <div className="absolute bg-yellow-700 rounded-2xl" 
-                   style={{ left: '48%', top: '40%', width: '12%', height: '35%' }} />
-              
-              {/* Asia */}
-              <div className="absolute bg-green-700 rounded-3xl" 
-                   style={{ left: '58%', top: '20%', width: '25%', height: '30%', transform: 'rotate(-5deg)' }} />
-              
-              {/* Australia */}
-              <div className="absolute bg-orange-600 rounded-xl" 
-                   style={{ left: '75%', top: '65%', width: '10%', height: '8%' }} />
-            </div>
+              {/* Simple continent shapes using CSS */}
+              <div className="absolute inset-0">
+                {/* North America */}
+                <div className="absolute bg-green-700 rounded-3xl" 
+                     style={{ left: '8%', top: '20%', width: '20%', height: '25%', transform: 'rotate(-10deg)' }} />
+                
+                {/* South America */}
+                <div className="absolute bg-green-600 rounded-2xl" 
+                     style={{ left: '22%', top: '45%', width: '12%', height: '30%', transform: 'rotate(10deg)' }} />
+                
+                {/* Europe */}
+                <div className="absolute bg-green-800 rounded-xl" 
+                     style={{ left: '45%', top: '25%', width: '8%', height: '15%' }} />
+                
+                {/* Africa */}
+                <div className="absolute bg-yellow-700 rounded-2xl" 
+                     style={{ left: '48%', top: '40%', width: '12%', height: '35%' }} />
+                
+                {/* Asia */}
+                <div className="absolute bg-green-700 rounded-3xl" 
+                     style={{ left: '58%', top: '20%', width: '25%', height: '30%', transform: 'rotate(-5deg)' }} />
+                
+                {/* Australia */}
+                <div className="absolute bg-orange-600 rounded-xl" 
+                     style={{ left: '75%', top: '65%', width: '10%', height: '8%' }} />
+              </div>
 
-            {/* Chokepoint markers */}
-            {chokepoints.map((chokepoint) => (
+              {/* Chokepoint markers */}
+              {chokepoints.map((chokepoint) => (
+                <button
+                  key={chokepoint.id}
+                  className="absolute w-6 h-6 bg-red-500 border-4 border-white rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition-all duration-300 z-20 animate-pulse"
+                  style={{
+                    left: `${chokepoint.coordinates.x}%`,
+                    top: `${chokepoint.coordinates.y}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                  onClick={() => handleChokepointClick(chokepoint)}
+                />
+              ))}
+            </div>
+          ) : (
+            // Zoomed Gibraltar View
+            <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-blue-700 to-blue-900">
+              {/* Zoomed view background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-800" />
+              
+              {/* Gibraltar region representation */}
+              <div className="absolute inset-0">
+                {/* Spain (top) */}
+                <div className="absolute bg-green-700 rounded-lg" 
+                     style={{ left: '20%', top: '10%', width: '60%', height: '30%' }} />
+                
+                {/* Morocco (bottom) */}
+                <div className="absolute bg-yellow-600 rounded-lg" 
+                     style={{ left: '25%', top: '60%', width: '50%', height: '30%' }} />
+                
+                {/* Strait (water between) */}
+                <div className="absolute bg-blue-400 rounded-sm" 
+                     style={{ left: '30%', top: '40%', width: '40%', height: '20%' }} />
+                
+                {/* Gibraltar marker */}
+                <div className="absolute w-8 h-8 bg-red-500 border-4 border-white rounded-full shadow-lg z-20" 
+                     style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
+              </div>
+              
+              {/* Zoom out button */}
               <button
-                key={chokepoint.id}
-                className="absolute w-6 h-6 bg-red-500 border-4 border-white rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition-all duration-300 z-20"
-                style={{
-                  left: `${chokepoint.coordinates.x}%`,
-                  top: `${chokepoint.coordinates.y}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-                onClick={() => setSelectedChokepoint(chokepoint)}
-              />
-            ))}
-          </div>
+                onClick={handleZoomOut}
+                className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 px-4 py-2 rounded-lg shadow-lg transition-all duration-200 z-30"
+              >
+                Zoom Out
+              </button>
+            </div>
+          )}
         </div>
         
         {/* Header */}
@@ -166,8 +168,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           </Card>
         </div>
 
-        {/* Chokepoint Info Panel */}
-        {selectedChokepoint && (
+        {/* Chokepoint Info Panel - Only show when zoomed */}
+        {selectedChokepoint && isZoomed && (
           <div className="absolute bottom-4 left-4 z-10 w-80">
             <Card className="bg-white/95 backdrop-blur-sm">
               <CardHeader>
