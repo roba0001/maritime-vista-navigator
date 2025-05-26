@@ -1,14 +1,24 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import CharacterSelection from '@/components/CharacterSelection';
+import MaritimeMap from '@/components/MaritimeMap';
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const [selectedRole, setSelectedRole] = useState<'cargo_owner' | 'shipping_agency' | 'naval_actor' | null>(null);
+
+  const handleRoleSelect = (role: 'cargo_owner' | 'shipping_agency' | 'naval_actor') => {
+    setSelectedRole(role);
+  };
+
+  const handleBack = () => {
+    setSelectedRole(null);
+  };
+
+  if (selectedRole) {
+    return <MaritimeMap selectedRole={selectedRole} onBack={handleBack} />;
+  }
+
+  return <CharacterSelection onRoleSelect={handleRoleSelect} />;
 };
 
 export default Index;
