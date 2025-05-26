@@ -1,14 +1,35 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Ship, DollarSign, AlertTriangle } from 'lucide-react';
 
+// Fix for default markers in react-leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Custom red marker for chokepoints
+const chokepointIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
 interface Chokepoint {
   id: string;
   name: string;
-  coordinates: { x: number; y: number }; // Percentage positions on the map
+  coordinates: [number, number]; // [lat, lng]
   nearbyPorts: string[];
   tradeVolume: string;
   geopoliticalNotes: string;
@@ -20,16 +41,29 @@ interface MaritimeMapProps {
   onBack: () => void;
 }
 
+// Component to handle map view changes
+const MapController: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [map, center, zoom]);
+  
+  return null;
+};
+
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([20, 0]);
+  const [mapZoom, setMapZoom] = useState(2);
 
-  // Only Gibraltar chokepoint
+  // Gibraltar chokepoint
   const chokepoints: Chokepoint[] = [
     {
       id: 'strait_of_gibraltar',
       name: 'Strait of Gibraltar',
-      coordinates: { x: 47, y: 45 }, // Approximate position on world map
+      coordinates: [36.1408, -5.3536], // Gibraltar coordinates
       nearbyPorts: ['Algeciras', 'Tangier', 'Ceuta'],
       tradeVolume: '~100,000 vessels/year',
       geopoliticalNotes: 'Key gateway between Atlantic and Mediterranean, controlled by Spain and Morocco',
@@ -40,11 +74,15 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const handleChokepointClick = (chokepoint: Chokepoint) => {
     setSelectedChokepoint(chokepoint);
     setIsZoomed(true);
+    setMapCenter(chokepoint.coordinates);
+    setMapZoom(10);
   };
 
   const handleZoomOut = () => {
     setIsZoomed(false);
     setSelectedChokepoint(null);
+    setMapCenter([20, 0]);
+    setMapZoom(2);
   };
 
   const getRoleColor = (role: string) => {
@@ -69,89 +107,36 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     <div className="h-screen flex bg-slate-900">
       {/* Map Area */}
       <div className="flex-1 relative">
-        {/* Map Container */}
+        {/* Leaflet Map Container */}
         <div className="absolute inset-0">
-          {!isZoomed ? (
-            // World Map View
-            <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-teal-900">
-              {/* Ocean background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-800 to-blue-900" />
-              
-              {/* Simple continent shapes using CSS */}
-              <div className="absolute inset-0">
-                {/* North America */}
-                <div className="absolute bg-green-700 rounded-3xl" 
-                     style={{ left: '8%', top: '20%', width: '20%', height: '25%', transform: 'rotate(-10deg)' }} />
-                
-                {/* South America */}
-                <div className="absolute bg-green-600 rounded-2xl" 
-                     style={{ left: '22%', top: '45%', width: '12%', height: '30%', transform: 'rotate(10deg)' }} />
-                
-                {/* Europe */}
-                <div className="absolute bg-green-800 rounded-xl" 
-                     style={{ left: '45%', top: '25%', width: '8%', height: '15%' }} />
-                
-                {/* Africa */}
-                <div className="absolute bg-yellow-700 rounded-2xl" 
-                     style={{ left: '48%', top: '40%', width: '12%', height: '35%' }} />
-                
-                {/* Asia */}
-                <div className="absolute bg-green-700 rounded-3xl" 
-                     style={{ left: '58%', top: '20%', width: '25%', height: '30%', transform: 'rotate(-5deg)' }} />
-                
-                {/* Australia */}
-                <div className="absolute bg-orange-600 rounded-xl" 
-                     style={{ left: '75%', top: '65%', width: '10%', height: '8%' }} />
-              </div>
-
-              {/* Chokepoint markers */}
-              {chokepoints.map((chokepoint) => (
-                <button
-                  key={chokepoint.id}
-                  className="absolute w-6 h-6 bg-red-500 border-4 border-white rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition-all duration-300 z-20 animate-pulse"
-                  style={{
-                    left: `${chokepoint.coordinates.x}%`,
-                    top: `${chokepoint.coordinates.y}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                  onClick={() => handleChokepointClick(chokepoint)}
-                />
-              ))}
-            </div>
-          ) : (
-            // Zoomed Gibraltar View
-            <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-blue-700 to-blue-900">
-              {/* Zoomed view background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-800" />
-              
-              {/* Gibraltar region representation */}
-              <div className="absolute inset-0">
-                {/* Spain (top) */}
-                <div className="absolute bg-green-700 rounded-lg" 
-                     style={{ left: '20%', top: '10%', width: '60%', height: '30%' }} />
-                
-                {/* Morocco (bottom) */}
-                <div className="absolute bg-yellow-600 rounded-lg" 
-                     style={{ left: '25%', top: '60%', width: '50%', height: '30%' }} />
-                
-                {/* Strait (water between) */}
-                <div className="absolute bg-blue-400 rounded-sm" 
-                     style={{ left: '30%', top: '40%', width: '40%', height: '20%' }} />
-                
-                {/* Gibraltar marker */}
-                <div className="absolute w-8 h-8 bg-red-500 border-4 border-white rounded-full shadow-lg z-20" 
-                     style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
-              </div>
-              
-              {/* Zoom out button */}
-              <button
-                onClick={handleZoomOut}
-                className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-800 px-4 py-2 rounded-lg shadow-lg transition-all duration-200 z-30"
+          <MapContainer
+            center={mapCenter}
+            zoom={mapZoom}
+            style={{ height: '100%', width: '100%' }}
+            className="z-0"
+          >
+            <MapController center={mapCenter} zoom={mapZoom} />
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            
+            {chokepoints.map((chokepoint) => (
+              <Marker
+                key={chokepoint.id}
+                position={chokepoint.coordinates}
+                icon={chokepointIcon}
+                eventHandlers={{
+                  click: () => handleChokepointClick(chokepoint),
+                }}
               >
-                Zoom Out
-              </button>
-            </div>
-          )}
+                <Popup>
+                  <div className="font-semibold">{chokepoint.name}</div>
+                  <div className="text-sm">Click to view details</div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
         </div>
         
         {/* Header */}
@@ -167,6 +152,18 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Zoom out button - Only show when zoomed */}
+        {isZoomed && (
+          <div className="absolute top-4 right-4 z-10">
+            <Button
+              onClick={handleZoomOut}
+              className="bg-white/90 hover:bg-white text-gray-800 shadow-lg"
+            >
+              Zoom Out
+            </Button>
+          </div>
+        )}
 
         {/* Chokepoint Info Panel - Only show when zoomed */}
         {selectedChokepoint && isZoomed && (
