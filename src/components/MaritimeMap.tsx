@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -41,12 +40,14 @@ interface MaritimeMapProps {
   onBack: () => void;
 }
 
-// Component to handle map view changes
-const MapController: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
+// Component to handle map view changes - Fixed structure
+const MapController = ({ center, zoom }: { center: [number, number]; zoom: number }) => {
   const map = useMap();
   
   useEffect(() => {
-    map.setView(center, zoom);
+    if (map) {
+      map.setView(center, zoom);
+    }
   }, [map, center, zoom]);
   
   return null;
