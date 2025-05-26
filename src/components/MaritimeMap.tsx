@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,24 +41,9 @@ interface MaritimeMapProps {
   onBack: () => void;
 }
 
-// Component to handle map view changes - Fixed structure
-const MapController = ({ center, zoom }: { center: [number, number]; zoom: number }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (map) {
-      map.setView(center, zoom);
-    }
-  }, [map, center, zoom]);
-  
-  return null;
-};
-
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([51.505, -0.09]);
-  const [mapZoom, setMapZoom] = useState(13);
+  const mapRef = useRef<L.Map | null>(null);
 
   // Gibraltar chokepoint
   const chokepoints: Chokepoint[] = [
@@ -73,17 +59,23 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   ];
 
   const handleChokepointClick = (chokepoint: Chokepoint) => {
+    console.log('Chokepoint clicked:', chokepoint.name);
     setSelectedChokepoint(chokepoint);
-    setIsZoomed(true);
-    setMapCenter(chokepoint.coordinates);
-    setMapZoom(15);
+    
+    // Zoom to chokepoint if map is available
+    if (mapRef.current) {
+      mapRef.current.setView(chokepoint.coordinates, 10);
+    }
   };
 
   const handleZoomOut = () => {
-    setIsZoomed(false);
+    console.log('Zooming out');
     setSelectedChokepoint(null);
-    setMapCenter([51.505, -0.09]);
-    setMapZoom(13);
+    
+    // Reset to world view
+    if (mapRef.current) {
+      mapRef.current.setView([20, 0], 2);
+    }
   };
 
   const getRoleColor = (role: string) => {
@@ -108,18 +100,44 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     <div className="h-screen flex bg-slate-900">
       {/* Map Area */}
       <div className="flex-1 relative">
+        {/* Header */}
+        <div className="absolute top-4 left-4 z-10">
+          <Card className="bg-white/90 backdrop-blur-sm">
+            <CardContent className="p-4 flex items-center space-x-3">
+              <div className={`px-3 py-1 rounded-full text-white text-sm ${getRoleColor(selectedRole)}`}>
+                {getRoleTitle(selectedRole)}
+              </div>
+              <Button onClick={onBack} variant="outline" size="sm">
+                Change Role
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Zoom out button */}
+        {selectedChokepoint && (
+          <div className="absolute top-4 right-4 z-10">
+            <Button
+              onClick={handleZoomOut}
+              className="bg-white/90 hover:bg-white text-gray-800 shadow-lg"
+            >
+              Zoom Out
+            </Button>
+          </div>
+        )}
+
         {/* Leaflet Map Container */}
         <div className="absolute inset-0">
           <MapContainer
-            center={mapCenter}
-            zoom={mapZoom}
+            center={[20, 0]}
+            zoom={2}
             style={{ height: '100%', width: '100%' }}
             className="z-0"
+            ref={mapRef}
           >
-            <MapController center={mapCenter} zoom={mapZoom} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             
             {chokepoints.map((chokepoint) => (
@@ -139,35 +157,9 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
             ))}
           </MapContainer>
         </div>
-        
-        {/* Header */}
-        <div className="absolute top-4 left-4 z-10">
-          <Card className="bg-white/90 backdrop-blur-sm">
-            <CardContent className="p-4 flex items-center space-x-3">
-              <div className={`px-3 py-1 rounded-full text-white text-sm ${getRoleColor(selectedRole)}`}>
-                {getRoleTitle(selectedRole)}
-              </div>
-              <Button onClick={onBack} variant="outline" size="sm">
-                Change Role
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Zoom out button - Only show when zoomed */}
-        {isZoomed && (
-          <div className="absolute top-4 right-4 z-10">
-            <Button
-              onClick={handleZoomOut}
-              className="bg-white/90 hover:bg-white text-gray-800 shadow-lg"
-            >
-              Zoom Out
-            </Button>
-          </div>
-        )}
-
-        {/* Chokepoint Info Panel - Only show when zoomed */}
-        {selectedChokepoint && isZoomed && (
+        {/* Chokepoint Info Panel */}
+        {selectedChokepoint && (
           <div className="absolute bottom-4 left-4 z-10 w-80">
             <Card className="bg-white/95 backdrop-blur-sm">
               <CardHeader>
