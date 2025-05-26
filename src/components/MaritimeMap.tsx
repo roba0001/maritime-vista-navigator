@@ -1,17 +1,14 @@
 
-import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MapPin, Ship, DollarSign, AlertTriangle } from 'lucide-react';
 
 interface Chokepoint {
   id: string;
   name: string;
-  coordinates: [number, number];
+  coordinates: { x: number; y: number }; // Percentage positions on the map
   nearbyPorts: string[];
   tradeVolume: string;
   geopoliticalNotes: string;
@@ -24,17 +21,13 @@ interface MaritimeMapProps {
 }
 
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
-  const [mapboxToken, setMapboxToken] = useState('');
-  const [isTokenSet, setIsTokenSet] = useState(false);
 
   const chokepoints: Chokepoint[] = [
     {
       id: 'strait_of_gibraltar',
       name: 'Strait of Gibraltar',
-      coordinates: [-5.3603, 35.9375],
+      coordinates: { x: 47, y: 45 }, // Approximate position on world map
       nearbyPorts: ['Algeciras', 'Tangier', 'Ceuta'],
       tradeVolume: '~100,000 vessels/year',
       geopoliticalNotes: 'Key gateway between Atlantic and Mediterranean, controlled by Spain and Morocco',
@@ -43,7 +36,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     {
       id: 'suez_canal',
       name: 'Suez Canal',
-      coordinates: [32.3078, 30.5728],
+      coordinates: { x: 57, y: 52 },
       nearbyPorts: ['Port Said', 'Suez', 'Alexandria'],
       tradeVolume: '~19,000 vessels/year',
       geopoliticalNotes: 'Vital route connecting Europe and Asia, controlled by Egypt',
@@ -52,7 +45,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     {
       id: 'strait_of_hormuz',
       name: 'Strait of Hormuz',
-      coordinates: [56.2500, 26.5333],
+      coordinates: { x: 65, y: 55 },
       nearbyPorts: ['Dubai', 'Bandar Abbas', 'Fujairah'],
       tradeVolume: '~21% of global petroleum liquids',
       geopoliticalNotes: 'Critical oil chokepoint, potential for Iran to disrupt traffic',
@@ -61,7 +54,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     {
       id: 'strait_of_malacca',
       name: 'Strait of Malacca',
-      coordinates: [100.3517, 2.5104],
+      coordinates: { x: 78, y: 62 },
       nearbyPorts: ['Singapore', 'Port Klang', 'Johor'],
       tradeVolume: '~25% of traded goods globally',
       geopoliticalNotes: 'Major trade route between Indian and Pacific Oceans',
@@ -70,7 +63,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     {
       id: 'panama_canal',
       name: 'Panama Canal',
-      coordinates: [-79.9081, 9.0781],
+      coordinates: { x: 25, y: 62 },
       nearbyPorts: ['Balboa', 'Cristóbal', 'Manzanillo'],
       tradeVolume: '~14,000 vessels/year',
       geopoliticalNotes: 'Key connection between Atlantic and Pacific, operated by Panama',
@@ -79,85 +72,13 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     {
       id: 'bab_el_mandeb',
       name: 'Bab el-Mandeb Strait',
-      coordinates: [43.3333, 12.5833],
+      coordinates: { x: 61, y: 67 },
       nearbyPorts: ['Aden', 'Djibouti', 'Assab'],
       tradeVolume: '~4.8 million barrels/day',
       geopoliticalNotes: 'Strategic route to Suez Canal, affected by regional conflicts',
       strategicImportance: 'High'
     }
   ];
-
-  const handleTokenSubmit = () => {
-    if (mapboxToken.trim()) {
-      setIsTokenSet(true);
-      initializeMap();
-    }
-  };
-
-  const initializeMap = () => {
-    if (!mapContainer.current || !mapboxToken) return;
-
-    mapboxgl.accessToken = mapboxToken;
-    
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      zoom: 2,
-      center: [0, 20],
-      projection: 'globe' as any
-    });
-
-    map.current.on('style.load', () => {
-      if (!map.current) return;
-      
-      map.current.setFog({
-        color: 'rgb(186, 210, 235)',
-        'high-color': 'rgb(36, 92, 223)',
-        'horizon-blend': 0.02
-      });
-
-      // Add chokepoint markers
-      chokepoints.forEach((chokepoint) => {
-        const el = document.createElement('div');
-        el.className = 'chokepoint-marker';
-        el.style.cssText = `
-          background-color: #ef4444;
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          border: 3px solid white;
-          cursor: pointer;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-          transition: all 0.3s ease;
-        `;
-        
-        el.addEventListener('mouseenter', () => {
-          el.style.transform = 'scale(1.2)';
-          el.style.backgroundColor = '#dc2626';
-        });
-        
-        el.addEventListener('mouseleave', () => {
-          el.style.transform = 'scale(1)';
-          el.style.backgroundColor = '#ef4444';
-        });
-
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat(chokepoint.coordinates)
-          .addTo(map.current!);
-
-        el.addEventListener('click', () => {
-          setSelectedChokepoint(chokepoint);
-          map.current?.flyTo({
-            center: chokepoint.coordinates,
-            zoom: 8,
-            duration: 2000
-          });
-        });
-      });
-    });
-
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-  };
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -177,44 +98,59 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     }
   };
 
-  if (!isTokenSet) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-teal-900 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-white/10 backdrop-blur-sm border-white/20">
-          <CardHeader>
-            <CardTitle className="text-white text-center">Enter Mapbox Token</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-blue-200 text-sm">
-              Please enter your Mapbox public token to continue. You can get one at{' '}
-              <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
-                mapbox.com
-              </a>
-            </p>
-            <Input
-              type="text"
-              placeholder="pk.eyJ1IjoieW91cnVzZXJuYW1lIiwi..."
-              value={mapboxToken}
-              onChange={(e) => setMapboxToken(e.target.value)}
-              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-            />
-            <Button onClick={handleTokenSubmit} className="w-full bg-blue-600 hover:bg-blue-700">
-              Continue to Map
-            </Button>
-            <Button onClick={onBack} variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-              Back to Role Selection
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="h-screen flex bg-slate-900">
       {/* Map Area */}
       <div className="flex-1 relative">
-        <div ref={mapContainer} className="absolute inset-0" />
+        {/* Simple World Map Container */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-teal-900">
+          {/* Simple world map representation using CSS */}
+          <div className="relative w-full h-full overflow-hidden">
+            {/* Ocean background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-800 to-blue-900" />
+            
+            {/* Simple continent shapes using CSS */}
+            <div className="absolute inset-0">
+              {/* North America */}
+              <div className="absolute bg-green-700 rounded-3xl" 
+                   style={{ left: '8%', top: '20%', width: '20%', height: '25%', transform: 'rotate(-10deg)' }} />
+              
+              {/* South America */}
+              <div className="absolute bg-green-600 rounded-2xl" 
+                   style={{ left: '22%', top: '45%', width: '12%', height: '30%', transform: 'rotate(10deg)' }} />
+              
+              {/* Europe */}
+              <div className="absolute bg-green-800 rounded-xl" 
+                   style={{ left: '45%', top: '25%', width: '8%', height: '15%' }} />
+              
+              {/* Africa */}
+              <div className="absolute bg-yellow-700 rounded-2xl" 
+                   style={{ left: '48%', top: '40%', width: '12%', height: '35%' }} />
+              
+              {/* Asia */}
+              <div className="absolute bg-green-700 rounded-3xl" 
+                   style={{ left: '58%', top: '20%', width: '25%', height: '30%', transform: 'rotate(-5deg)' }} />
+              
+              {/* Australia */}
+              <div className="absolute bg-orange-600 rounded-xl" 
+                   style={{ left: '75%', top: '65%', width: '10%', height: '8%' }} />
+            </div>
+
+            {/* Chokepoint markers */}
+            {chokepoints.map((chokepoint) => (
+              <button
+                key={chokepoint.id}
+                className="absolute w-6 h-6 bg-red-500 border-4 border-white rounded-full shadow-lg hover:bg-red-600 hover:scale-110 transition-all duration-300 z-20"
+                style={{
+                  left: `${chokepoint.coordinates.x}%`,
+                  top: `${chokepoint.coordinates.y}%`,
+                  transform: 'translate(-50%, -50%)'
+                }}
+                onClick={() => setSelectedChokepoint(chokepoint)}
+              />
+            ))}
+          </div>
+        </div>
         
         {/* Header */}
         <div className="absolute top-4 left-4 z-10">
