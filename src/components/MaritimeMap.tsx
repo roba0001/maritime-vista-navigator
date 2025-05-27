@@ -1,35 +1,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Ship, DollarSign, AlertTriangle } from 'lucide-react';
 
-// Fix for default markers in react-leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-// Custom red marker for chokepoints
-const chokepointIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
 interface Chokepoint {
   id: string;
   name: string;
-  coordinates: [number, number];
+  lat: number;
+  lng: number;
   nearbyPorts: string[];
   tradeVolume: string;
   geopoliticalNotes: string;
@@ -43,14 +23,16 @@ interface MaritimeMapProps {
 
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
+  const globeRef = useRef<HTMLDivElement>(null);
+  const globeInstance = useRef<any>(null);
 
-  // Gibraltar chokepoint
+  // Gibraltar chokepoint with lat/lng format for globe.gl
   const chokepoints: Chokepoint[] = [
     {
       id: 'strait_of_gibraltar',
       name: 'Strait of Gibraltar',
-      coordinates: [36.1408, -5.3536],
+      lat: 36.1408,
+      lng: -5.3536,
       nearbyPorts: ['Algeciras', 'Tangier', 'Ceuta'],
       tradeVolume: '~100,000 vessels/year',
       geopoliticalNotes: 'Key gateway between Atlantic and Mediterranean, controlled by Spain and Morocco',
@@ -58,13 +40,74 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     }
   ];
 
+  useEffect(() => {
+    if (!globeRef.current) return;
+
+    // Import Globe dynamically to avoid SSR issues
+    import('globe.gl').then(({ default: Globe }) => {
+      console.log('Initializing globe');
+      
+      const globe = Globe()
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
+        .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+        .labelsData(chokepoints)
+        .labelLat(d => d.lat)
+        .labelLng(d => d.lng)
+        .labelText(d => d.name)
+        .labelSize(2)
+        .labelDotRadius(0.5)
+        .labelColor(() => '#ff4444')
+        .labelResolution(3)
+        .onLabelClick((label) => {
+          console.log('Label clicked:', label);
+          const chokepoint = chokepoints.find(cp => cp.id === label.id);
+          if (chokepoint) {
+            handleChokepointClick(chokepoint);
+          }
+        })
+        .width(globeRef.current.clientWidth)
+        .height(globeRef.current.clientHeight);
+
+      globeInstance.current = globe;
+      globe(globeRef.current);
+
+      // Handle window resize
+      const handleResize = () => {
+        if (globe && globeRef.current) {
+          globe
+            .width(globeRef.current.clientWidth)
+            .height(globeRef.current.clientHeight);
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+      
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
+    }).catch(error => {
+      console.error('Failed to load Globe:', error);
+    });
+
+    return () => {
+      if (globeInstance.current) {
+        // Cleanup globe instance
+        globeInstance.current = null;
+      }
+    };
+  }, []);
+
   const handleChokepointClick = (chokepoint: Chokepoint) => {
     console.log('Chokepoint clicked:', chokepoint.name);
     setSelectedChokepoint(chokepoint);
     
-    // Zoom to chokepoint if map is available
-    if (mapRef.current) {
-      mapRef.current.setView(chokepoint.coordinates, 10);
+    // Zoom to chokepoint location
+    if (globeInstance.current) {
+      globeInstance.current.pointOfView({
+        lat: chokepoint.lat,
+        lng: chokepoint.lng,
+        altitude: 1.5
+      }, 1000);
     }
   };
 
@@ -73,8 +116,12 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     setSelectedChokepoint(null);
     
     // Reset to world view
-    if (mapRef.current) {
-      mapRef.current.setView([20, 0], 2);
+    if (globeInstance.current) {
+      globeInstance.current.pointOfView({
+        lat: 0,
+        lng: 0,
+        altitude: 2.5
+      }, 1000);
     }
   };
 
@@ -126,37 +173,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           </div>
         )}
 
-        {/* Leaflet Map Container */}
-        <div className="absolute inset-0">
-          <MapContainer
-            center={[20, 0]}
-            zoom={2}
-            style={{ height: '100%', width: '100%' }}
-            className="z-0"
-            ref={mapRef}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            
-            {chokepoints.map((chokepoint) => (
-              <Marker
-                key={chokepoint.id}
-                position={chokepoint.coordinates}
-                icon={chokepointIcon}
-                eventHandlers={{
-                  click: () => handleChokepointClick(chokepoint),
-                }}
-              >
-                <Popup>
-                  <div className="font-semibold">{chokepoint.name}</div>
-                  <div className="text-sm">Click to view details</div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
+        {/* Globe Container */}
+        <div ref={globeRef} className="absolute inset-0" />
 
         {/* Chokepoint Info Panel */}
         {selectedChokepoint && (
