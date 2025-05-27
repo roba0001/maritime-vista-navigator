@@ -12,10 +12,10 @@ interface Chokepoint {
   name: string;
   lat: number;
   lng: number;
-  nearbyPorts: string[];
-  tradeVolume: string;
-  geopoliticalNotes: string;
+  connects: string;
+  whyItMatters: string;
   strategicImportance: 'High' | 'Medium' | 'Critical';
+  tradePercentage?: string;
 }
 
 interface MaritimeMapProps {
@@ -29,17 +29,91 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
 
-  // Gibraltar chokepoint data
   const chokepoints: Chokepoint[] = [
+    {
+      id: 'english_channel',
+      name: 'English Channel',
+      lat: 50.2,
+      lng: 1.0,
+      connects: 'North Sea ↔ Atlantic Ocean',
+      whyItMatters: 'Busiest maritime route in the world; vital for EU–UK trade and North Sea traffic.',
+      strategicImportance: 'Critical'
+    },
+    {
+      id: 'danish_straits',
+      name: 'Danish Straits',
+      lat: 55.8,
+      lng: 12.6,
+      connects: 'Baltic Sea ↔ North Sea',
+      whyItMatters: 'Only access for Baltic states and Russia to open ocean; NATO strategic interest.',
+      strategicImportance: 'High'
+    },
+    {
+      id: 'bosphorus_strait',
+      name: 'Bosphorus Strait',
+      lat: 41.1,
+      lng: 29.0,
+      connects: 'Black Sea ↔ Mediterranean Sea',
+      whyItMatters: 'Key outlet for Russian, Ukrainian, and Romanian exports; very narrow and busy.',
+      strategicImportance: 'Critical'
+    },
+    {
+      id: 'panama_canal',
+      name: 'Panama Canal',
+      lat: 9.0,
+      lng: -79.5,
+      connects: 'Atlantic ↔ Pacific Ocean',
+      whyItMatters: 'Major shortcut for East-West trade; saves 13,000 km around South America.',
+      strategicImportance: 'Critical'
+    },
     {
       id: 'strait_of_gibraltar',
       name: 'Strait of Gibraltar',
-      lat: 36.1408,
-      lng: -5.3536,
-      nearbyPorts: ['Algeciras', 'Tangier', 'Ceuta'],
-      tradeVolume: '~100,000 vessels/year',
-      geopoliticalNotes: 'Key gateway between Atlantic and Mediterranean, controlled by Spain and Morocco',
+      lat: 36.1,
+      lng: -5.4,
+      connects: 'Atlantic Ocean ↔ Mediterranean Sea',
+      whyItMatters: '1/3 of global shipping passes nearby; critical for Mediterranean access.',
+      strategicImportance: 'Critical',
+      tradePercentage: '33% of global shipping'
+    },
+    {
+      id: 'suez_canal',
+      name: 'Suez Canal',
+      lat: 30.5,
+      lng: 32.3,
+      connects: 'Red Sea ↔ Mediterranean Sea',
+      whyItMatters: 'Key for Europe–Asia trade; handles ~12% of global trade. Vulnerable to blockage.',
+      strategicImportance: 'Critical',
+      tradePercentage: '12% of global trade'
+    },
+    {
+      id: 'bab_el_mandeb',
+      name: 'Bab el-Mandeb Strait',
+      lat: 12.6,
+      lng: 43.3,
+      connects: 'Red Sea ↔ Gulf of Aden (Indian Ocean)',
+      whyItMatters: 'Gateway between Suez Canal and Indian Ocean; risk from regional instability.',
       strategicImportance: 'Critical'
+    },
+    {
+      id: 'strait_of_hormuz',
+      name: 'Strait of Hormuz',
+      lat: 26.6,
+      lng: 56.3,
+      connects: 'Persian Gulf ↔ Arabian Sea',
+      whyItMatters: "World's most important oil chokepoint (~20% of oil passes through).",
+      strategicImportance: 'Critical',
+      tradePercentage: '20% of global oil'
+    },
+    {
+      id: 'strait_of_malacca',
+      name: 'Strait of Malacca',
+      lat: 4.2,
+      lng: 100.0,
+      connects: 'Indian Ocean ↔ South China Sea (Pacific)',
+      whyItMatters: 'Shortest Asia–Europe route; handles ~30% of global trade. Piracy, congestion risks.',
+      strategicImportance: 'Critical',
+      tradePercentage: '30% of global trade'
     }
   ];
 
@@ -55,15 +129,13 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
       center: [0, 20],
       zoom: 1,
       pitch: 60,
-      bearing: 0,
-      projection: 'globe' as any
+      bearing: 0
     });
 
     mapRef.current = map;
 
     map.on('style.load', () => {
-      console.log('Map style loaded, adding fog effect');
-      map.setFog({}); // add atmospheric effect
+      console.log('Map style loaded, adding chokepoint markers');
       
       // Add chokepoint markers
       chokepoints.forEach(chokepoint => {
@@ -73,10 +145,22 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
         markerElement.style.width = '20px';
         markerElement.style.height = '20px';
         markerElement.style.borderRadius = '50%';
-        markerElement.style.backgroundColor = '#FFD700';
-        markerElement.style.border = '3px solid #000';
+        markerElement.style.backgroundColor = '#FF4444';
+        markerElement.style.border = '3px solid #FFFFFF';
         markerElement.style.cursor = 'pointer';
         markerElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+        markerElement.style.transition = 'all 0.3s ease';
+
+        // Add hover effect
+        markerElement.addEventListener('mouseenter', () => {
+          markerElement.style.transform = 'scale(1.2)';
+          markerElement.style.backgroundColor = '#FF6666';
+        });
+
+        markerElement.addEventListener('mouseleave', () => {
+          markerElement.style.transform = 'scale(1)';
+          markerElement.style.backgroundColor = '#FF4444';
+        });
 
         // Create marker
         const marker = new maplibregl.Marker(markerElement)
@@ -92,7 +176,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           handleChokepointClick(chokepoint);
         });
 
-        // Add label
+        // Add label popup
         const popup = new maplibregl.Popup({
           offset: 25,
           closeButton: false,
@@ -123,11 +207,11 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     console.log('Handling chokepoint click:', chokepoint.name);
     setSelectedChokepoint(chokepoint);
     
-    // Fly to chokepoint location
+    // Fly to chokepoint location with appropriate zoom level
     if (mapRef.current) {
       mapRef.current.flyTo({
         center: [chokepoint.lng, chokepoint.lat],
-        zoom: 8,
+        zoom: 6,
         pitch: 45,
         bearing: 0,
         essential: true,
@@ -206,7 +290,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
 
         {/* Chokepoint Info Panel */}
         {selectedChokepoint && (
-          <div className="absolute bottom-4 left-4 z-10 w-80">
+          <div className="absolute bottom-4 left-4 z-10 w-96">
             <Card className="bg-white/95 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -221,25 +305,27 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
                 <div>
                   <h4 className="font-semibold flex items-center space-x-1 mb-2">
                     <Ship className="w-4 h-4" />
-                    <span>Nearby Ports</span>
+                    <span>Connects</span>
                   </h4>
-                  <p className="text-sm text-gray-600">{selectedChokepoint.nearbyPorts.join(', ')}</p>
+                  <p className="text-sm text-gray-600">{selectedChokepoint.connects}</p>
                 </div>
                 
-                <div>
-                  <h4 className="font-semibold flex items-center space-x-1 mb-2">
-                    <DollarSign className="w-4 h-4" />
-                    <span>Trade Volume</span>
-                  </h4>
-                  <p className="text-sm text-gray-600">{selectedChokepoint.tradeVolume}</p>
-                </div>
+                {selectedChokepoint.tradePercentage && (
+                  <div>
+                    <h4 className="font-semibold flex items-center space-x-1 mb-2">
+                      <DollarSign className="w-4 h-4" />
+                      <span>Trade Volume</span>
+                    </h4>
+                    <p className="text-sm text-gray-600">{selectedChokepoint.tradePercentage}</p>
+                  </div>
+                )}
                 
                 <div>
                   <h4 className="font-semibold flex items-center space-x-1 mb-2">
                     <AlertTriangle className="w-4 h-4" />
-                    <span>Geopolitical Notes</span>
+                    <span>Strategic Importance</span>
                   </h4>
-                  <p className="text-sm text-gray-600">{selectedChokepoint.geopoliticalNotes}</p>
+                  <p className="text-sm text-gray-600">{selectedChokepoint.whyItMatters}</p>
                 </div>
               </CardContent>
             </Card>
