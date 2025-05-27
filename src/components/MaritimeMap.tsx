@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Ship, DollarSign, AlertTriangle } from 'lucide-react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 interface Chokepoint {
   id: string;
@@ -23,8 +25,9 @@ interface MaritimeMapProps {
 
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
-  const cesiumContainerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   // Gibraltar chokepoint data
   const chokepoints: Chokepoint[] = [
@@ -41,141 +44,111 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   ];
 
   useEffect(() => {
-    if (!cesiumContainerRef.current || typeof window === 'undefined') return;
+    if (!mapContainerRef.current) return;
 
-    // Load Cesium dynamically
-    const loadCesium = async () => {
-      try {
-        // Add Cesium CSS
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css';
-        document.head.appendChild(link);
+    console.log('Initializing MapLibre map');
 
-        // Add Cesium script
-        const script = document.createElement('script');
-        script.src = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js';
-        script.onload = () => {
-          console.log('Cesium loaded successfully');
-          initializeCesium();
-        };
-        document.head.appendChild(script);
-      } catch (error) {
-        console.error('Failed to load Cesium:', error);
-      }
-    };
+    // Initialize MapLibre map
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: 'https://demotiles.maplibre.org/style.json',
+      center: [0, 20],
+      zoom: 1,
+      pitch: 60,
+      bearing: 0,
+      projection: 'globe' as any
+    });
 
-    const initializeCesium = () => {
-      if (!window.Cesium || !cesiumContainerRef.current) return;
+    mapRef.current = map;
 
-      try {
-        console.log('Initializing Cesium viewer');
-        
-        const viewer = new window.Cesium.Viewer(cesiumContainerRef.current, {
-          shouldAnimate: true,
-          homeButton: false,
-          sceneModePicker: false,
-          baseLayerPicker: false,
-          navigationHelpButton: false,
-          animation: false,
-          timeline: false,
-          fullscreenButton: false,
-          vrButton: false
+    map.on('style.load', () => {
+      console.log('Map style loaded, adding fog effect');
+      map.setFog({}); // add atmospheric effect
+      
+      // Add chokepoint markers
+      chokepoints.forEach(chokepoint => {
+        // Create marker element
+        const markerElement = document.createElement('div');
+        markerElement.className = 'chokepoint-marker';
+        markerElement.style.width = '20px';
+        markerElement.style.height = '20px';
+        markerElement.style.borderRadius = '50%';
+        markerElement.style.backgroundColor = '#FFD700';
+        markerElement.style.border = '3px solid #000';
+        markerElement.style.cursor = 'pointer';
+        markerElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+
+        // Create marker
+        const marker = new maplibregl.Marker(markerElement)
+          .setLngLat([chokepoint.lng, chokepoint.lat])
+          .addTo(map);
+
+        markersRef.current.push(marker);
+
+        // Add click event
+        markerElement.addEventListener('click', (e) => {
+          e.stopPropagation();
+          console.log('Chokepoint clicked:', chokepoint.name);
+          handleChokepointClick(chokepoint);
         });
 
-        viewerRef.current = viewer;
+        // Add label
+        const popup = new maplibregl.Popup({
+          offset: 25,
+          closeButton: false,
+          closeOnClick: false
+        })
+          .setLngLat([chokepoint.lng, chokepoint.lat])
+          .setHTML(`<div style="background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${chokepoint.name}</div>`)
+          .addTo(map);
+      });
+    });
 
-        // Add chokepoint entities
-        chokepoints.forEach(chokepoint => {
-          const entity = viewer.entities.add({
-            position: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat),
-            point: {
-              pixelSize: 15,
-              color: window.Cesium.Color.YELLOW,
-              outlineColor: window.Cesium.Color.BLACK,
-              outlineWidth: 2,
-              heightReference: window.Cesium.HeightReference.CLAMP_TO_GROUND
-            },
-            label: {
-              text: chokepoint.name,
-              font: '14pt monospace',
-              style: window.Cesium.LabelStyle.FILL_AND_OUTLINE,
-              outlineWidth: 2,
-              verticalOrigin: window.Cesium.VerticalOrigin.BOTTOM,
-              pixelOffset: new window.Cesium.Cartesian2(0, -9),
-              fillColor: window.Cesium.Color.YELLOW,
-              outlineColor: window.Cesium.Color.BLACK
-            },
-            description: `
-              <div>
-                <h3>${chokepoint.name}</h3>
-                <p><strong>Strategic Importance:</strong> ${chokepoint.strategicImportance}</p>
-                <p><strong>Trade Volume:</strong> ${chokepoint.tradeVolume}</p>
-                <p><strong>Nearby Ports:</strong> ${chokepoint.nearbyPorts.join(', ')}</p>
-                <p><strong>Notes:</strong> ${chokepoint.geopoliticalNotes}</p>
-              </div>
-            `
-          });
-
-          // Store chokepoint data with entity
-          entity.chokepoint = chokepoint;
-        });
-
-        // Handle entity selection
-        viewer.selectedEntityChanged.addEventListener((selectedEntity: any) => {
-          if (selectedEntity && selectedEntity.chokepoint) {
-            console.log('Entity selected:', selectedEntity.chokepoint.name);
-            handleChokepointClick(selectedEntity.chokepoint);
-          }
-        });
-
-        console.log('Cesium viewer initialized successfully');
-      } catch (error) {
-        console.error('Error initializing Cesium viewer:', error);
-      }
-    };
-
-    // Check if Cesium is already loaded
-    if (window.Cesium) {
-      initializeCesium();
-    } else {
-      loadCesium();
-    }
+    map.on('load', () => {
+      console.log('MapLibre map loaded successfully');
+    });
 
     return () => {
-      if (viewerRef.current) {
-        try {
-          viewerRef.current.destroy();
-          viewerRef.current = null;
-        } catch (error) {
-          console.error('Error destroying Cesium viewer:', error);
-        }
+      console.log('Cleaning up MapLibre map');
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
       }
     };
   }, []);
 
   const handleChokepointClick = (chokepoint: Chokepoint) => {
-    console.log('Chokepoint clicked:', chokepoint.name);
+    console.log('Handling chokepoint click:', chokepoint.name);
     setSelectedChokepoint(chokepoint);
     
     // Fly to chokepoint location
-    if (viewerRef.current && window.Cesium) {
-      viewerRef.current.camera.flyTo({
-        destination: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat, 1000000),
-        duration: 2.0
+    if (mapRef.current) {
+      mapRef.current.flyTo({
+        center: [chokepoint.lng, chokepoint.lat],
+        zoom: 8,
+        pitch: 45,
+        bearing: 0,
+        essential: true,
+        duration: 2000
       });
     }
   };
 
   const handleZoomOut = () => {
-    console.log('Zooming out');
+    console.log('Zooming out to world view');
     setSelectedChokepoint(null);
     
-    // Fly to world view
-    if (viewerRef.current && window.Cesium) {
-      viewerRef.current.camera.flyTo({
-        destination: window.Cesium.Cartesian3.fromDegrees(0, 0, 20000000),
-        duration: 2.0
+    // Fly back to world view
+    if (mapRef.current) {
+      mapRef.current.flyTo({
+        center: [0, 20],
+        zoom: 1,
+        pitch: 60,
+        bearing: 0,
+        essential: true,
+        duration: 2000
       });
     }
   };
@@ -228,8 +201,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           </div>
         )}
 
-        {/* Cesium Container */}
-        <div ref={cesiumContainerRef} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
+        {/* MapLibre Container */}
+        <div ref={mapContainerRef} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
         {/* Chokepoint Info Panel */}
         {selectedChokepoint && (
@@ -298,12 +271,5 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     </div>
   );
 };
-
-// Add Cesium types to window
-declare global {
-  interface Window {
-    Cesium: any;
-  }
-}
 
 export default MaritimeMap;
