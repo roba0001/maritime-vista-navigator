@@ -23,10 +23,10 @@ interface MaritimeMapProps {
 
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
-  const globeRef = useRef<HTMLDivElement>(null);
-  const globeInstance = useRef<any>(null);
+  const cesiumContainerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<any>(null);
 
-  // Gibraltar chokepoint with lat/lng format for globe.gl
+  // Gibraltar chokepoint data
   const chokepoints: Chokepoint[] = [
     {
       id: 'strait_of_gibraltar',
@@ -41,58 +41,115 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   ];
 
   useEffect(() => {
-    if (!globeRef.current) return;
+    if (!cesiumContainerRef.current || typeof window === 'undefined') return;
 
-    // Import Globe dynamically to avoid SSR issues
-    import('globe.gl').then(({ default: Globe }) => {
-      console.log('Initializing globe');
-      
-      const globe = Globe()
-        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
-        .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
-        .labelsData(chokepoints)
-        .labelLat(d => d.lat)
-        .labelLng(d => d.lng)
-        .labelText(d => d.name)
-        .labelSize(2)
-        .labelDotRadius(0.5)
-        .labelColor(() => '#ff4444')
-        .labelResolution(3)
-        .onLabelClick((label) => {
-          console.log('Label clicked:', label);
-          const chokepoint = chokepoints.find(cp => cp.id === label.id);
-          if (chokepoint) {
-            handleChokepointClick(chokepoint);
+    // Load Cesium dynamically
+    const loadCesium = async () => {
+      try {
+        // Add Cesium CSS
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css';
+        document.head.appendChild(link);
+
+        // Add Cesium script
+        const script = document.createElement('script');
+        script.src = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js';
+        script.onload = () => {
+          console.log('Cesium loaded successfully');
+          initializeCesium();
+        };
+        document.head.appendChild(script);
+      } catch (error) {
+        console.error('Failed to load Cesium:', error);
+      }
+    };
+
+    const initializeCesium = () => {
+      if (!window.Cesium || !cesiumContainerRef.current) return;
+
+      try {
+        console.log('Initializing Cesium viewer');
+        
+        const viewer = new window.Cesium.Viewer(cesiumContainerRef.current, {
+          shouldAnimate: true,
+          homeButton: false,
+          sceneModePicker: false,
+          baseLayerPicker: false,
+          navigationHelpButton: false,
+          animation: false,
+          timeline: false,
+          fullscreenButton: false,
+          vrButton: false
+        });
+
+        viewerRef.current = viewer;
+
+        // Add chokepoint entities
+        chokepoints.forEach(chokepoint => {
+          const entity = viewer.entities.add({
+            position: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat),
+            point: {
+              pixelSize: 15,
+              color: window.Cesium.Color.YELLOW,
+              outlineColor: window.Cesium.Color.BLACK,
+              outlineWidth: 2,
+              heightReference: window.Cesium.HeightReference.CLAMP_TO_GROUND
+            },
+            label: {
+              text: chokepoint.name,
+              font: '14pt monospace',
+              style: window.Cesium.LabelStyle.FILL_AND_OUTLINE,
+              outlineWidth: 2,
+              verticalOrigin: window.Cesium.VerticalOrigin.BOTTOM,
+              pixelOffset: new window.Cesium.Cartesian2(0, -9),
+              fillColor: window.Cesium.Color.YELLOW,
+              outlineColor: window.Cesium.Color.BLACK
+            },
+            description: `
+              <div>
+                <h3>${chokepoint.name}</h3>
+                <p><strong>Strategic Importance:</strong> ${chokepoint.strategicImportance}</p>
+                <p><strong>Trade Volume:</strong> ${chokepoint.tradeVolume}</p>
+                <p><strong>Nearby Ports:</strong> ${chokepoint.nearbyPorts.join(', ')}</p>
+                <p><strong>Notes:</strong> ${chokepoint.geopoliticalNotes}</p>
+              </div>
+            `
+          });
+
+          // Store chokepoint data with entity
+          entity.chokepoint = chokepoint;
+        });
+
+        // Handle entity selection
+        viewer.selectedEntityChanged.addEventListener((selectedEntity: any) => {
+          if (selectedEntity && selectedEntity.chokepoint) {
+            console.log('Entity selected:', selectedEntity.chokepoint.name);
+            handleChokepointClick(selectedEntity.chokepoint);
           }
-        })
-        .width(globeRef.current.clientWidth)
-        .height(globeRef.current.clientHeight);
+        });
 
-      globeInstance.current = globe;
-      globe(globeRef.current);
+        console.log('Cesium viewer initialized successfully');
+      } catch (error) {
+        console.error('Error initializing Cesium viewer:', error);
+      }
+    };
 
-      // Handle window resize
-      const handleResize = () => {
-        if (globe && globeRef.current) {
-          globe
-            .width(globeRef.current.clientWidth)
-            .height(globeRef.current.clientHeight);
-        }
-      };
-
-      window.addEventListener('resize', handleResize);
-      
-      return () => {
-        window.removeEventListener('resize', handleResize);
-      };
-    }).catch(error => {
-      console.error('Failed to load Globe:', error);
-    });
+    // Check if Cesium is already loaded
+    if (window.Cesium) {
+      initializeCesium();
+    } else {
+      loadCesium();
+    }
 
     return () => {
-      if (globeInstance.current) {
-        // Cleanup globe instance
-        globeInstance.current = null;
+      if (viewerRef.current) {
+        try {
+          viewerRef.current.destroy();
+          viewerRef.current = null;
+        } catch (error) {
+          console.error('Error destroying Cesium viewer:', error);
+        }
       }
     };
   }, []);
@@ -101,13 +158,12 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     console.log('Chokepoint clicked:', chokepoint.name);
     setSelectedChokepoint(chokepoint);
     
-    // Zoom to chokepoint location
-    if (globeInstance.current) {
-      globeInstance.current.pointOfView({
-        lat: chokepoint.lat,
-        lng: chokepoint.lng,
-        altitude: 1.5
-      }, 1000);
+    // Fly to chokepoint location
+    if (viewerRef.current && window.Cesium) {
+      viewerRef.current.camera.flyTo({
+        destination: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat, 1000000),
+        duration: 2.0
+      });
     }
   };
 
@@ -115,13 +171,12 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     console.log('Zooming out');
     setSelectedChokepoint(null);
     
-    // Reset to world view
-    if (globeInstance.current) {
-      globeInstance.current.pointOfView({
-        lat: 0,
-        lng: 0,
-        altitude: 2.5
-      }, 1000);
+    // Fly to world view
+    if (viewerRef.current && window.Cesium) {
+      viewerRef.current.camera.flyTo({
+        destination: window.Cesium.Cartesian3.fromDegrees(0, 0, 20000000),
+        duration: 2.0
+      });
     }
   };
 
@@ -173,8 +228,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           </div>
         )}
 
-        {/* Globe Container */}
-        <div ref={globeRef} className="absolute inset-0" />
+        {/* Cesium Container */}
+        <div ref={cesiumContainerRef} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
         {/* Chokepoint Info Panel */}
         {selectedChokepoint && (
@@ -243,5 +298,12 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     </div>
   );
 };
+
+// Add Cesium types to window
+declare global {
+  interface Window {
+    Cesium: any;
+  }
+}
 
 export default MaritimeMap;
