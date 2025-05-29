@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,8 +55,10 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           timeline: false,
           fullscreenButton: false,
           vrButton: false,
-          // Use the default world imagery provider with labels
-          imageryProvider: new window.Cesium.IonImageryProvider({ assetId: 3812 })
+          // Use OpenStreetMap imagery which clearly shows continents
+          imageryProvider: new window.Cesium.OpenStreetMapImageryProvider({
+            url: 'https://a.tile.openstreetmap.org/'
+          })
         });
 
         viewerRef.current = viewer;
