@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,10 +54,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           timeline: false,
           fullscreenButton: false,
           vrButton: false,
-          // Use Natural Earth II imagery for clear continent visibility
-          imageryProvider: new window.Cesium.createWorldImagery({
-            style: window.Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS_ON_DEMAND
-          })
+          // Use the default world imagery provider with labels
+          imageryProvider: new window.Cesium.IonImageryProvider({ assetId: 3812 })
         });
 
         viewerRef.current = viewer;
