@@ -55,7 +55,10 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           timeline: false,
           fullscreenButton: false,
           vrButton: false,
-          imageryProvider: new window.Cesium.IonImageryProvider({ assetId: 3812 }) // Bing Maps Aerial with Labels (daytime)
+          // Use Natural Earth II imagery for clear continent visibility
+          imageryProvider: new window.Cesium.createWorldImagery({
+            style: window.Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS_ON_DEMAND
+          })
         });
 
         viewerRef.current = viewer;
@@ -69,6 +72,9 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
             roll: 0.0
           }
         });
+
+        // Add shipping routes connecting chokepoints
+        addShippingRoutes(viewer);
 
         // Add chokepoint entities
         chokepoints.forEach(chokepoint => {
@@ -111,6 +117,53 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
       } catch (error) {
         console.error('Error initializing Cesium viewer:', error);
       }
+    };
+
+    const addShippingRoutes = (viewer: any) => {
+      // Define major shipping routes connecting chokepoints
+      const shippingRoutes = [
+        // Europe-Asia route via Suez
+        { from: 'english_channel', to: 'strait_of_gibraltar' },
+        { from: 'strait_of_gibraltar', to: 'suez_canal' },
+        { from: 'suez_canal', to: 'bab_el_mandeb' },
+        { from: 'bab_el_mandeb', to: 'strait_of_hormuz' },
+        { from: 'strait_of_hormuz', to: 'strait_of_malacca' },
+        
+        // Trans-Atlantic routes
+        { from: 'english_channel', to: 'panama_canal' },
+        { from: 'strait_of_gibraltar', to: 'panama_canal' },
+        
+        // Pacific routes
+        { from: 'panama_canal', to: 'strait_of_malacca' },
+        
+        // Black Sea connections
+        { from: 'bosporus_strait', to: 'suez_canal' },
+        { from: 'bosporus_strait', to: 'strait_of_gibraltar' },
+        
+        // Baltic connections
+        { from: 'danish_straits', to: 'english_channel' },
+        { from: 'danish_straits', to: 'bosporus_strait' },
+      ];
+
+      shippingRoutes.forEach(route => {
+        const fromChokepoint = chokepoints.find(c => c.id === route.from);
+        const toChokepoint = chokepoints.find(c => c.id === route.to);
+        
+        if (fromChokepoint && toChokepoint) {
+          viewer.entities.add({
+            polyline: {
+              positions: [
+                window.Cesium.Cartesian3.fromDegrees(fromChokepoint.lng, fromChokepoint.lat),
+                window.Cesium.Cartesian3.fromDegrees(toChokepoint.lng, toChokepoint.lat)
+              ],
+              width: 3,
+              material: window.Cesium.Color.CYAN.withAlpha(0.6),
+              clampToGround: false,
+              followSurface: true
+            }
+          });
+        }
+      });
     };
 
     // Check if Cesium is already loaded
