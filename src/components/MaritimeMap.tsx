@@ -1,20 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MapPin, Ship, DollarSign, AlertTriangle } from 'lucide-react';
-
-interface Chokepoint {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  nearbyPorts: string[];
-  tradeVolume: string;
-  geopoliticalNotes: string;
-  strategicImportance: 'High' | 'Medium' | 'Critical';
-}
+import { chokepoints, Chokepoint } from '@/data/chokepoints';
+import ChokepointInfoPanel from './ChokepointInfoPanel';
 
 interface MaritimeMapProps {
   selectedRole: 'cargo_owner' | 'shipping_agency' | 'naval_actor';
@@ -26,24 +15,9 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const cesiumContainerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
 
-  // Gibraltar chokepoint data
-  const chokepoints: Chokepoint[] = [
-    {
-      id: 'strait_of_gibraltar',
-      name: 'Strait of Gibraltar',
-      lat: 36.1408,
-      lng: -5.3536,
-      nearbyPorts: ['Algeciras', 'Tangier', 'Ceuta'],
-      tradeVolume: '~100,000 vessels/year',
-      geopoliticalNotes: 'Key gateway between Atlantic and Mediterranean, controlled by Spain and Morocco',
-      strategicImportance: 'Critical'
-    }
-  ];
-
   useEffect(() => {
     if (!cesiumContainerRef.current || typeof window === 'undefined') return;
 
-    // Load Cesium dynamically
     const loadCesium = async () => {
       try {
         // Add Cesium CSS
@@ -80,41 +54,45 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           animation: false,
           timeline: false,
           fullscreenButton: false,
-          vrButton: false
+          vrButton: false,
+          imageryProvider: new window.Cesium.IonImageryProvider({ assetId: 3812 }) // Bing Maps Aerial with Labels (daytime)
         });
 
         viewerRef.current = viewer;
+
+        // Set initial camera position for better globe view
+        viewer.camera.setView({
+          destination: window.Cesium.Cartesian3.fromDegrees(0, 20, 20000000),
+          orientation: {
+            heading: 0.0,
+            pitch: -window.Cesium.Math.PI_OVER_TWO,
+            roll: 0.0
+          }
+        });
 
         // Add chokepoint entities
         chokepoints.forEach(chokepoint => {
           const entity = viewer.entities.add({
             position: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat),
             point: {
-              pixelSize: 15,
+              pixelSize: 12,
               color: window.Cesium.Color.YELLOW,
               outlineColor: window.Cesium.Color.BLACK,
               outlineWidth: 2,
-              heightReference: window.Cesium.HeightReference.CLAMP_TO_GROUND
+              heightReference: window.Cesium.HeightReference.CLAMP_TO_GROUND,
+              scaleByDistance: new window.Cesium.NearFarScalar(1.5e2, 1.0, 1.5e7, 0.5)
             },
             label: {
               text: chokepoint.name,
-              font: '14pt monospace',
+              font: '12pt sans-serif',
               style: window.Cesium.LabelStyle.FILL_AND_OUTLINE,
               outlineWidth: 2,
               verticalOrigin: window.Cesium.VerticalOrigin.BOTTOM,
-              pixelOffset: new window.Cesium.Cartesian2(0, -9),
-              fillColor: window.Cesium.Color.YELLOW,
-              outlineColor: window.Cesium.Color.BLACK
-            },
-            description: `
-              <div>
-                <h3>${chokepoint.name}</h3>
-                <p><strong>Strategic Importance:</strong> ${chokepoint.strategicImportance}</p>
-                <p><strong>Trade Volume:</strong> ${chokepoint.tradeVolume}</p>
-                <p><strong>Nearby Ports:</strong> ${chokepoint.nearbyPorts.join(', ')}</p>
-                <p><strong>Notes:</strong> ${chokepoint.geopoliticalNotes}</p>
-              </div>
-            `
+              pixelOffset: new window.Cesium.Cartesian2(0, -15),
+              fillColor: window.Cesium.Color.WHITE,
+              outlineColor: window.Cesium.Color.BLACK,
+              scaleByDistance: new window.Cesium.NearFarScalar(1.5e2, 1.0, 1.5e7, 0.5)
+            }
           });
 
           // Store chokepoint data with entity
@@ -158,10 +136,30 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     console.log('Chokepoint clicked:', chokepoint.name);
     setSelectedChokepoint(chokepoint);
     
-    // Fly to chokepoint location
     if (viewerRef.current && window.Cesium) {
+      // Add green square marker at the location
+      const greenSquare = viewerRef.current.entities.add({
+        position: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat),
+        rectangle: {
+          coordinates: window.Cesium.Rectangle.fromDegrees(
+            chokepoint.lng - 0.5,
+            chokepoint.lat - 0.5,
+            chokepoint.lng + 0.5,
+            chokepoint.lat + 0.5
+          ),
+          material: window.Cesium.Color.LIME.withAlpha(0.8),
+          outline: true,
+          outlineColor: window.Cesium.Color.GREEN,
+          height: 10000
+        }
+      });
+
+      // Store reference to remove later
+      greenSquare.isGreenMarker = true;
+
+      // Fly to chokepoint location with closer zoom
       viewerRef.current.camera.flyTo({
-        destination: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat, 1000000),
+        destination: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat, 2000000),
         duration: 2.0
       });
     }
@@ -171,10 +169,20 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     console.log('Zooming out');
     setSelectedChokepoint(null);
     
-    // Fly to world view
     if (viewerRef.current && window.Cesium) {
+      // Remove green markers
+      const entitiesToRemove = [];
+      for (let i = 0; i < viewerRef.current.entities.values.length; i++) {
+        const entity = viewerRef.current.entities.values[i];
+        if (entity.isGreenMarker) {
+          entitiesToRemove.push(entity);
+        }
+      }
+      entitiesToRemove.forEach(entity => viewerRef.current.entities.remove(entity));
+
+      // Fly to world view
       viewerRef.current.camera.flyTo({
-        destination: window.Cesium.Cartesian3.fromDegrees(0, 0, 20000000),
+        destination: window.Cesium.Cartesian3.fromDegrees(0, 20, 20000000),
         duration: 2.0
       });
     }
@@ -233,44 +241,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
 
         {/* Chokepoint Info Panel */}
         {selectedChokepoint && (
-          <div className="absolute bottom-4 left-4 z-10 w-80">
-            <Card className="bg-white/95 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MapPin className="w-5 h-5 text-red-600" />
-                  <span>{selectedChokepoint.name}</span>
-                </CardTitle>
-                <Badge variant={selectedChokepoint.strategicImportance === 'Critical' ? 'destructive' : 'secondary'}>
-                  {selectedChokepoint.strategicImportance} Importance
-                </Badge>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h4 className="font-semibold flex items-center space-x-1 mb-2">
-                    <Ship className="w-4 h-4" />
-                    <span>Nearby Ports</span>
-                  </h4>
-                  <p className="text-sm text-gray-600">{selectedChokepoint.nearbyPorts.join(', ')}</p>
-                </div>
-                
-                <div>
-                  <h4 className="font-semibold flex items-center space-x-1 mb-2">
-                    <DollarSign className="w-4 h-4" />
-                    <span>Trade Volume</span>
-                  </h4>
-                  <p className="text-sm text-gray-600">{selectedChokepoint.tradeVolume}</p>
-                </div>
-                
-                <div>
-                  <h4 className="font-semibold flex items-center space-x-1 mb-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Geopolitical Notes</span>
-                  </h4>
-                  <p className="text-sm text-gray-600">{selectedChokepoint.geopoliticalNotes}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <ChokepointInfoPanel chokepoint={selectedChokepoint} />
         )}
       </div>
 
@@ -278,17 +249,14 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
       <div className="w-96 bg-slate-800 border-l border-slate-700">
         <div className="p-6">
           <Card className="bg-slate-700 border-slate-600">
-            <CardHeader>
-              <CardTitle className="text-white">Maritime Intelligence Assistant</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <div className="text-slate-300 text-center py-8">
                 <div className="w-16 h-16 bg-slate-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <Ship className="w-8 h-8 text-slate-400" />
+                  <div className="w-8 h-8 text-slate-400">🌐</div>
                 </div>
-                <p className="mb-2">LLM Integration Coming Soon</p>
+                <p className="mb-2 font-semibold">Global Maritime Intelligence</p>
                 <p className="text-sm text-slate-400">
-                  This panel will host an interactive AI assistant for maritime analysis and insights.
+                  Advanced AI analysis for maritime chokepoints and shipping intelligence coming soon.
                 </p>
               </div>
             </CardContent>
