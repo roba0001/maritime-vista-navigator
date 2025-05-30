@@ -7,7 +7,7 @@ import ChokepointInfoPanel from "./ChokepointInfoPanel";
 import Globe from "globe.gl";
 
 interface MaritimeMapProps {
-  selectedRole: "cargo_owner" | "shipping_agency" | "naval_actor";
+  selectedRole: "cargo_owner" | "shipping_agency" | "user_role";
   onBack: () => void;
   onBackToStart: () => void;
 }
@@ -315,7 +315,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
         return "bg-blue-600";
       case "shipping_agency":
         return "bg-teal-600";
-      case "naval_actor":
+      case "user_role":
         return "bg-slate-600";
       default:
         return "bg-gray-600";
@@ -328,8 +328,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
         return "Cargo Owner";
       case "shipping_agency":
         return "Shipping Agency";
-      case "naval_actor":
-        return "Naval Actor";
+      case "user_role":
+        return "User Role";
       default:
         return "Unknown Role";
     }
