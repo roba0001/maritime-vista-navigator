@@ -40,7 +40,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
     // Add continuous slow rotation
     const rotationSpeed = 0.02; // 90% slower (was 0.2, now 0.02)
     const animate = () => {
-      if (globeRef.current) {
+      if (globeRef.current && !selectedChokepoint) { // Only rotate when no chokepoint is selected
         const currentView = globeRef.current.pointOfView();
         globeRef.current.pointOfView({
           lat: currentView.lat,
@@ -82,7 +82,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
         globeRef.current = null;
       }
     };
-  }, []);
+  }, [selectedChokepoint]); // Add selectedChokepoint as dependency to restart animation when changed
 
   const addRealisticShippingRoutes = (globe: any) => {
     // Define realistic shipping routes that follow ocean paths
