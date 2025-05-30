@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
 import { chokepoints, Chokepoint } from "@/data/chokepoints";
 import ChokepointInfoPanel from "./ChokepointInfoPanel";
+import ChokepointInfoPanelAI from "./ChokepointInfoPanelAI";
 import Globe from "globe.gl";
 
 interface MaritimeMapProps {
@@ -385,26 +386,13 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
         />
 
         {/* Chokepoint Info Panel */}
-        {selectedChokepoint && <ChokepointInfoPanel chokepoint={selectedChokepoint} />}
+        {selectedChokepoint && <ChokepointInfoPanelAI chokepoint={selectedChokepoint} />}
       </div>
 
       {/* Right Sidebar - LLM Placeholder */}
       <div className="w-96 bg-slate-800 border-l border-slate-700">
-        <div className="p-6">
-          <Card className="bg-slate-700 border-slate-600">
-            <CardContent className="p-6">
-              <div className="text-slate-300 text-center py-8">
-                <div className="w-16 h-16 bg-slate-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <div className="w-8 h-8 text-slate-400">🌐</div>
-                </div>
-                <p className="mb-2 font-semibold">Global Maritime Intelligence</p>
-                <p className="text-sm text-slate-400">
-                  Advanced AI analysis for maritime chokepoints and shipping intelligence coming
-                  soon.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="p-6 h-screen overflow-scroll">
+          {selectedChokepoint && <ChokepointInfoPanel chokepoint={selectedChokepoint} />}
         </div>
       </div>
     </div>
