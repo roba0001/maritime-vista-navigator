@@ -232,10 +232,11 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
     const chokepointData = chokepoints.map((chokepoint) => ({
       lat: chokepoint.lat,
       lng: chokepoint.lng,
-      size: 6,
+      size: 0.5,
       color: "#FFD700", // Yellow background
       label: chokepoint.name,
       chokepoint: chokepoint,
+      altitude: 0.03, // higher altitude = on top
     }));
 
     // Add yellow square markers
@@ -243,7 +244,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
       .pointsData(chokepointData)
       .pointColor("color")
       .pointRadius("size")
-      .pointAltitude(0.02)
+      .pointAltitude(0.025)
       .pointLabel((d) => d.label)
       .pointResolution(8) // Make squares instead of circles
       .onPointClick((point: any) => {
