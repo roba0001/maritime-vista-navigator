@@ -6,9 +6,15 @@ import { Ship, Anchor, Shield } from "lucide-react";
 
 interface CharacterSelectionProps {
   onRoleSelect: (role: "cargo_owner" | "shipping_agency" | "user_role") => void;
+  onBack: () => void;
+  onBackToStart: () => void;
 }
 
-const CharacterSelection: React.FC<CharacterSelectionProps> = ({ onRoleSelect }) => {
+const CharacterSelection: React.FC<CharacterSelectionProps> = ({
+  onRoleSelect,
+  onBack,
+  onBackToStart,
+}) => {
   const roles = [
     {
       id: "cargo_owner" as const,
@@ -39,7 +45,10 @@ const CharacterSelection: React.FC<CharacterSelectionProps> = ({ onRoleSelect })
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-teal-900 flex items-center justify-center p-4">
       <div className="max-w-6xl w-full">
-        <Button className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 shadow-lg px-4 py-2 rounded-full flex items-center space-x-2">
+        <Button
+          onClick={onBackToStart}
+          className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 shadow-lg px-4 py-2 rounded-full flex items-center space-x-2"
+        >
           <Home className="w-4 h-4" />
           <span>Back to Start</span>
         </Button>

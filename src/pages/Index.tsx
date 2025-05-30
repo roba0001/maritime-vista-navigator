@@ -33,7 +33,13 @@ const Index = () => {
   }
 
   if (currentPage === "role-selection") {
-    return <CharacterSelection onRoleSelect={handleRoleSelect} />;
+    return (
+      <CharacterSelection
+        onRoleSelect={handleRoleSelect}
+        onBack={handleBack}
+        onBackToStart={handleBackToStart}
+      />
+    );
   }
 
   if (currentPage === "map" && selectedRole) {
