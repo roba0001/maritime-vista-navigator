@@ -37,11 +37,26 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
     // Set initial camera position
     globe.pointOfView({ lat: 20, lng: 0, altitude: 2 });
 
+    // Add continuous slow rotation
+    const rotationSpeed = 0.2; // degrees per frame
+    const animate = () => {
+      if (globeRef.current) {
+        const currentView = globeRef.current.pointOfView();
+        globeRef.current.pointOfView({
+          lat: currentView.lat,
+          lng: currentView.lng + rotationSpeed,
+          altitude: currentView.altitude
+        });
+      }
+      requestAnimationFrame(animate);
+    };
+    animate();
+
     // Add shipping routes with realistic ocean paths
     addRealisticShippingRoutes(globe);
 
-    // Add chokepoints with new styling
-    addChokepointsWithNewStyling(globe);
+    // Add tactical chokepoint markers
+    addTacticalChokepointMarkers(globe);
 
     console.log('Globe.gl initialized successfully');
 
@@ -127,8 +142,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
             startLng: route.waypoints[i][1],
             endLat: route.waypoints[i + 1][0],
             endLng: route.waypoints[i + 1][1],
-            color: '#00CCFF',
-            strokeWidth: 1.5
+            color: 'rgba(220, 20, 20, 0.4)', // Red, semi-transparent
+            strokeWidth: 0.8 // Thinner lines
           });
         }
       }
@@ -137,56 +152,69 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
     globe.arcsData(routeData)
       .arcColor('color')
       .arcStroke('strokeWidth')
-      .arcAltitude(0.05)
-      .arcDashLength(0.3)
-      .arcDashGap(0.1)
-      .arcDashAnimateTime(2000);
+      .arcAltitude(0.03)
+      .arcDashLength(0.4)
+      .arcDashGap(0.2)
+      .arcDashAnimateTime(4000); // Slower, gentler animation
   };
 
-  const addChokepointsWithNewStyling = (globe: any) => {
+  const addTacticalChokepointMarkers = (globe: any) => {
+    // Add tactical markers using HTML elements for precise control
     const chokepointData = chokepoints.map(chokepoint => ({
       lat: chokepoint.lat,
       lng: chokepoint.lng,
-      size: 6,
-      color: '#FFD700', // Yellow background
-      label: chokepoint.name,
       chokepoint: chokepoint
     }));
 
-    // Add yellow square markers
-    globe.pointsData(chokepointData)
-      .pointColor('color')
-      .pointRadius('size')
-      .pointAltitude(0.02)
-      .pointLabel(d => d.label)
-      .pointResolution(8) // Make squares instead of circles
-      .onPointClick((point: any) => {
-        console.log('Chokepoint clicked:', point.chokepoint.name);
-        handleChokepointClick(point.chokepoint);
-      });
-
-    // Add red dots in center of yellow squares
-    const redDotData = chokepoints.map(chokepoint => ({
-      lat: chokepoint.lat,
-      lng: chokepoint.lng,
-      size: 2,
-      color: '#FF0000', // Red center dot
-      chokepoint: chokepoint
-    }));
-
-    globe.htmlElementsData(redDotData)
+    globe.htmlElementsData(chokepointData)
       .htmlElement(d => {
         const el = document.createElement('div');
         el.style.cssText = `
-          width: 4px;
-          height: 4px;
-          background-color: #FF0000;
+          position: relative;
+          width: 20px;
+          height: 20px;
+          cursor: pointer;
+        `;
+
+        // Create yellow targeting reticle (hollow circle)
+        const reticle = document.createElement('div');
+        reticle.style.cssText = `
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 20px;
+          height: 20px;
+          border: 2px solid #FFD700;
           border-radius: 50%;
+          background: transparent;
           pointer-events: none;
         `;
+
+        // Create red center pin
+        const pin = document.createElement('div');
+        pin.style.cssText = `
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 6px;
+          height: 6px;
+          background-color: #DC2626;
+          border-radius: 50%;
+          transform: translate(-50%, -50%);
+          pointer-events: none;
+        `;
+
+        el.appendChild(reticle);
+        el.appendChild(pin);
+
+        // Add click handler
+        el.addEventListener('click', () => {
+          handleChokepointClick(d.chokepoint);
+        });
+
         return el;
       })
-      .htmlAltitude(0.021);
+      .htmlAltitude(0.02);
   };
 
   const handleChokepointClick = (chokepoint: Chokepoint) => {
