@@ -38,7 +38,7 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackT
     globe.pointOfView({ lat: 20, lng: 0, altitude: 2 });
 
     // Add continuous slow rotation
-    const rotationSpeed = 0.2; // degrees per frame
+    const rotationSpeed = 0.02; // 90% slower (was 0.2, now 0.02)
     const animate = () => {
       if (globeRef.current) {
         const currentView = globeRef.current.pointOfView();
