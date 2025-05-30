@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { chokepoints, Chokepoint } from '@/data/chokepoints';
 import ChokepointInfoPanel from './ChokepointInfoPanel';
+import Globe from 'globe.gl';
 
 interface MaritimeMapProps {
   selectedRole: 'cargo_owner' | 'shipping_agency' | 'naval_actor';
@@ -12,209 +13,145 @@ interface MaritimeMapProps {
 
 const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
-  const cesiumContainerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<any>(null);
+  const globeContainerRef = useRef<HTMLDivElement>(null);
+  const globeRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!cesiumContainerRef.current || typeof window === 'undefined') return;
+    if (!globeContainerRef.current) return;
 
-    const loadCesium = async () => {
-      try {
-        // Add Cesium CSS
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Widgets/widgets.css';
-        document.head.appendChild(link);
+    console.log('Initializing Globe.gl');
 
-        // Add Cesium script
-        const script = document.createElement('script');
-        script.src = 'https://cesium.com/downloads/cesiumjs/releases/1.113/Build/Cesium/Cesium.js';
-        script.onload = () => {
-          console.log('Cesium loaded successfully');
-          initializeCesium();
-        };
-        document.head.appendChild(script);
-      } catch (error) {
-        console.error('Failed to load Cesium:', error);
+    // Initialize Globe.gl
+    const globe = Globe()(globeContainerRef.current)
+      .globeTileEngineUrl((x, y, l) => `https://tile.openstreetmap.org/${l}/${x}/${y}.png`)
+      .backgroundColor('rgba(0,0,0,0)')
+      .showAtmosphere(true)
+      .atmosphereAltitude(0.1)
+      .width(globeContainerRef.current.clientWidth)
+      .height(globeContainerRef.current.clientHeight);
+
+    globeRef.current = globe;
+
+    // Set initial camera position
+    globe.pointOfView({ lat: 20, lng: 0, altitude: 2 });
+
+    // Add shipping routes
+    addShippingRoutes(globe);
+
+    // Add chokepoints
+    addChokepoints(globe);
+
+    console.log('Globe.gl initialized successfully');
+
+    // Handle window resize
+    const handleResize = () => {
+      if (globeRef.current && globeContainerRef.current) {
+        globeRef.current
+          .width(globeContainerRef.current.clientWidth)
+          .height(globeContainerRef.current.clientHeight);
       }
     };
 
-    const initializeCesium = () => {
-      if (!window.Cesium || !cesiumContainerRef.current) return;
-
-      try {
-        console.log('Initializing Cesium viewer');
-        
-        const viewer = new window.Cesium.Viewer(cesiumContainerRef.current, {
-          shouldAnimate: true,
-          homeButton: false,
-          sceneModePicker: false,
-          baseLayerPicker: false,
-          navigationHelpButton: false,
-          animation: false,
-          timeline: false,
-          fullscreenButton: false,
-          vrButton: false,
-          // Use OpenStreetMap imagery which clearly shows continents
-          imageryProvider: new window.Cesium.OpenStreetMapImageryProvider({
-            url: 'https://a.tile.openstreetmap.org/'
-          })
-        });
-
-        viewerRef.current = viewer;
-
-        // Set initial camera position for better globe view
-        viewer.camera.setView({
-          destination: window.Cesium.Cartesian3.fromDegrees(0, 20, 20000000),
-          orientation: {
-            heading: 0.0,
-            pitch: -window.Cesium.Math.PI_OVER_TWO,
-            roll: 0.0
-          }
-        });
-
-        // Add shipping routes connecting chokepoints
-        addShippingRoutes(viewer);
-
-        // Add chokepoint entities
-        chokepoints.forEach(chokepoint => {
-          const entity = viewer.entities.add({
-            position: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat),
-            point: {
-              pixelSize: 12,
-              color: window.Cesium.Color.YELLOW,
-              outlineColor: window.Cesium.Color.BLACK,
-              outlineWidth: 2,
-              heightReference: window.Cesium.HeightReference.CLAMP_TO_GROUND,
-              scaleByDistance: new window.Cesium.NearFarScalar(1.5e2, 1.0, 1.5e7, 0.5)
-            },
-            label: {
-              text: chokepoint.name,
-              font: '12pt sans-serif',
-              style: window.Cesium.LabelStyle.FILL_AND_OUTLINE,
-              outlineWidth: 2,
-              verticalOrigin: window.Cesium.VerticalOrigin.BOTTOM,
-              pixelOffset: new window.Cesium.Cartesian2(0, -15),
-              fillColor: window.Cesium.Color.WHITE,
-              outlineColor: window.Cesium.Color.BLACK,
-              scaleByDistance: new window.Cesium.NearFarScalar(1.5e2, 1.0, 1.5e7, 0.5)
-            }
-          });
-
-          // Store chokepoint data with entity
-          entity.chokepoint = chokepoint;
-        });
-
-        // Handle entity selection
-        viewer.selectedEntityChanged.addEventListener((selectedEntity: any) => {
-          if (selectedEntity && selectedEntity.chokepoint) {
-            console.log('Entity selected:', selectedEntity.chokepoint.name);
-            handleChokepointClick(selectedEntity.chokepoint);
-          }
-        });
-
-        console.log('Cesium viewer initialized successfully');
-      } catch (error) {
-        console.error('Error initializing Cesium viewer:', error);
-      }
-    };
-
-    const addShippingRoutes = (viewer: any) => {
-      // Define major shipping routes connecting chokepoints
-      const shippingRoutes = [
-        // Europe-Asia route via Suez
-        { from: 'english_channel', to: 'strait_of_gibraltar' },
-        { from: 'strait_of_gibraltar', to: 'suez_canal' },
-        { from: 'suez_canal', to: 'bab_el_mandeb' },
-        { from: 'bab_el_mandeb', to: 'strait_of_hormuz' },
-        { from: 'strait_of_hormuz', to: 'strait_of_malacca' },
-        
-        // Trans-Atlantic routes
-        { from: 'english_channel', to: 'panama_canal' },
-        { from: 'strait_of_gibraltar', to: 'panama_canal' },
-        
-        // Pacific routes
-        { from: 'panama_canal', to: 'strait_of_malacca' },
-        
-        // Black Sea connections
-        { from: 'bosporus_strait', to: 'suez_canal' },
-        { from: 'bosporus_strait', to: 'strait_of_gibraltar' },
-        
-        // Baltic connections
-        { from: 'danish_straits', to: 'english_channel' },
-        { from: 'danish_straits', to: 'bosporus_strait' },
-      ];
-
-      shippingRoutes.forEach(route => {
-        const fromChokepoint = chokepoints.find(c => c.id === route.from);
-        const toChokepoint = chokepoints.find(c => c.id === route.to);
-        
-        if (fromChokepoint && toChokepoint) {
-          viewer.entities.add({
-            polyline: {
-              positions: [
-                window.Cesium.Cartesian3.fromDegrees(fromChokepoint.lng, fromChokepoint.lat),
-                window.Cesium.Cartesian3.fromDegrees(toChokepoint.lng, toChokepoint.lat)
-              ],
-              width: 3,
-              material: window.Cesium.Color.CYAN.withAlpha(0.6),
-              clampToGround: false,
-              followSurface: true
-            }
-          });
-        }
-      });
-    };
-
-    // Check if Cesium is already loaded
-    if (window.Cesium) {
-      initializeCesium();
-    } else {
-      loadCesium();
-    }
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      if (viewerRef.current) {
+      window.removeEventListener('resize', handleResize);
+      if (globeRef.current) {
+        // Clean up globe instance
         try {
-          viewerRef.current.destroy();
-          viewerRef.current = null;
+          globeRef.current._destructor && globeRef.current._destructor();
         } catch (error) {
-          console.error('Error destroying Cesium viewer:', error);
+          console.error('Error cleaning up globe:', error);
         }
+        globeRef.current = null;
       }
     };
   }, []);
+
+  const addShippingRoutes = (globe: any) => {
+    // Define major shipping routes connecting chokepoints
+    const shippingRoutes = [
+      // Europe-Asia route via Suez
+      { from: 'english_channel', to: 'strait_of_gibraltar' },
+      { from: 'strait_of_gibraltar', to: 'suez_canal' },
+      { from: 'suez_canal', to: 'bab_el_mandeb' },
+      { from: 'bab_el_mandeb', to: 'strait_of_hormuz' },
+      { from: 'strait_of_hormuz', to: 'strait_of_malacca' },
+      
+      // Trans-Atlantic routes
+      { from: 'english_channel', to: 'panama_canal' },
+      { from: 'strait_of_gibraltar', to: 'panama_canal' },
+      
+      // Pacific routes
+      { from: 'panama_canal', to: 'strait_of_malacca' },
+      
+      // Black Sea connections
+      { from: 'bosporus_strait', to: 'suez_canal' },
+      { from: 'bosporus_strait', to: 'strait_of_gibraltar' },
+      
+      // Baltic connections
+      { from: 'danish_straits', to: 'english_channel' },
+      { from: 'danish_straits', to: 'bosporus_strait' },
+    ];
+
+    const routeData = shippingRoutes.map(route => {
+      const fromChokepoint = chokepoints.find(c => c.id === route.from);
+      const toChokepoint = chokepoints.find(c => c.id === route.to);
+      
+      if (fromChokepoint && toChokepoint) {
+        return {
+          startLat: fromChokepoint.lat,
+          startLng: fromChokepoint.lng,
+          endLat: toChokepoint.lat,
+          endLng: toChokepoint.lng,
+          color: '#00FFFF',
+          strokeWidth: 2
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    globe.arcsData(routeData)
+      .arcColor('color')
+      .arcStroke('strokeWidth')
+      .arcAltitude(0.1)
+      .arcDashLength(0.4)
+      .arcDashGap(0.2)
+      .arcDashAnimateTime(3000);
+  };
+
+  const addChokepoints = (globe: any) => {
+    const chokepointData = chokepoints.map(chokepoint => ({
+      lat: chokepoint.lat,
+      lng: chokepoint.lng,
+      size: 12,
+      color: '#FFFF00',
+      label: chokepoint.name,
+      chokepoint: chokepoint
+    }));
+
+    globe.pointsData(chokepointData)
+      .pointColor('color')
+      .pointRadius('size')
+      .pointAltitude(0.02)
+      .pointLabel(d => d.label)
+      .onPointClick((point: any) => {
+        console.log('Chokepoint clicked:', point.chokepoint.name);
+        handleChokepointClick(point.chokepoint);
+      });
+  };
 
   const handleChokepointClick = (chokepoint: Chokepoint) => {
     console.log('Chokepoint clicked:', chokepoint.name);
     setSelectedChokepoint(chokepoint);
     
-    if (viewerRef.current && window.Cesium) {
-      // Add green square marker at the location
-      const greenSquare = viewerRef.current.entities.add({
-        position: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat),
-        rectangle: {
-          coordinates: window.Cesium.Rectangle.fromDegrees(
-            chokepoint.lng - 0.5,
-            chokepoint.lat - 0.5,
-            chokepoint.lng + 0.5,
-            chokepoint.lat + 0.5
-          ),
-          material: window.Cesium.Color.LIME.withAlpha(0.8),
-          outline: true,
-          outlineColor: window.Cesium.Color.GREEN,
-          height: 10000
-        }
-      });
-
-      // Store reference to remove later
-      greenSquare.isGreenMarker = true;
-
-      // Fly to chokepoint location with closer zoom
-      viewerRef.current.camera.flyTo({
-        destination: window.Cesium.Cartesian3.fromDegrees(chokepoint.lng, chokepoint.lat, 2000000),
-        duration: 2.0
-      });
+    if (globeRef.current) {
+      // Zoom to chokepoint location
+      globeRef.current.pointOfView({
+        lat: chokepoint.lat,
+        lng: chokepoint.lng,
+        altitude: 0.5
+      }, 2000);
     }
   };
 
@@ -222,22 +159,13 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     console.log('Zooming out');
     setSelectedChokepoint(null);
     
-    if (viewerRef.current && window.Cesium) {
-      // Remove green markers
-      const entitiesToRemove = [];
-      for (let i = 0; i < viewerRef.current.entities.values.length; i++) {
-        const entity = viewerRef.current.entities.values[i];
-        if (entity.isGreenMarker) {
-          entitiesToRemove.push(entity);
-        }
-      }
-      entitiesToRemove.forEach(entity => viewerRef.current.entities.remove(entity));
-
-      // Fly to world view
-      viewerRef.current.camera.flyTo({
-        destination: window.Cesium.Cartesian3.fromDegrees(0, 20, 20000000),
-        duration: 2.0
-      });
+    if (globeRef.current) {
+      // Zoom out to world view
+      globeRef.current.pointOfView({
+        lat: 20,
+        lng: 0,
+        altitude: 2
+      }, 2000);
     }
   };
 
@@ -289,8 +217,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
           </div>
         )}
 
-        {/* Cesium Container */}
-        <div ref={cesiumContainerRef} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
+        {/* Globe Container */}
+        <div ref={globeContainerRef} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
 
         {/* Chokepoint Info Panel */}
         {selectedChokepoint && (
@@ -319,12 +247,5 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     </div>
   );
 };
-
-// Add Cesium types to window
-declare global {
-  interface Window {
-    Cesium: any;
-  }
-}
 
 export default MaritimeMap;
