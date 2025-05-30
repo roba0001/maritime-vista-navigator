@@ -18,7 +18,7 @@ const IntroductionPage: React.FC<IntroductionPageProps> = ({ onContinue }) => {
           </div>
           <h1 className="text-5xl font-bold text-white mb-6">Maritime Chokepoints Intelligence</h1>
           <p className="text-xl text-blue-200 max-w-3xl mx-auto leading-relaxed">
-            Explore critical maritime chokepoints that control global shipping routes and international trade flows. 
+           <span className='font-bold'> Navigate Geopolitical Risk. Build Resilience. </span> <br/>Explore critical maritime chokepoints that control global shipping routes and international trade flows. 
             Analyze strategic locations, understand geopolitical implications, and assess economic impacts through 
             an interactive 3D globe visualization.
           </p>

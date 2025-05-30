@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Ship, Anchor, Shield } from 'lucide-react';
 
 interface CharacterSelectionProps {
-  onRoleSelect: (role: 'cargo_owner' | 'shipping_agency' | 'naval_actor') => void;
+  onRoleSelect: (role: 'cargo_owner' | 'shipping_agency' | 'user_role') => void;
 }
 
 const CharacterSelection: React.FC<CharacterSelectionProps> = ({ onRoleSelect }) => {
@@ -25,9 +25,9 @@ const CharacterSelection: React.FC<CharacterSelectionProps> = ({ onRoleSelect })
       color: 'bg-teal-600 hover:bg-teal-700'
     },
     {
-      id: 'naval_actor' as const,
-      title: 'Naval Actor',
-      description: 'Examine strategic importance, security concerns, and geopolitical implications of maritime chokepoints.',
+      id: 'user_role' as const,
+      title: 'Unsure? ',
+      description: 'Start you personalized analysis by entering your occupation below. This will help us tailor the insights to your needs.',
       icon: Shield,
       color: 'bg-slate-600 hover:bg-slate-700'
     }
@@ -56,6 +56,7 @@ const CharacterSelection: React.FC<CharacterSelectionProps> = ({ onRoleSelect })
                 </CardHeader>
                 <CardContent className="text-center">
                   <p className="text-blue-200 mb-6 leading-relaxed">{role.description}</p>
+                  
                   <Button 
                     onClick={() => onRoleSelect(role.id)}
                     className={`w-full ${role.color} text-white transition-colors`}
