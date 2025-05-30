@@ -22,6 +22,11 @@ const Index = () => {
     setCurrentPage('role-selection');
   };
 
+  const handleBackToStart = () => {
+    setSelectedRole(null);
+    setCurrentPage('intro');
+  };
+
   if (currentPage === 'intro') {
     return <IntroductionPage onContinue={handleIntroComplete} />;
   }
@@ -31,7 +36,7 @@ const Index = () => {
   }
 
   if (currentPage === 'map' && selectedRole) {
-    return <MaritimeMap selectedRole={selectedRole} onBack={handleBack} />;
+    return <MaritimeMap selectedRole={selectedRole} onBack={handleBack} onBackToStart={handleBackToStart} />;
   }
 
   return <IntroductionPage onContinue={handleIntroComplete} />;

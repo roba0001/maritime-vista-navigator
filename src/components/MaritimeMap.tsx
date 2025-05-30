@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Home } from 'lucide-react';
 import { chokepoints, Chokepoint } from '@/data/chokepoints';
 import ChokepointInfoPanel from './ChokepointInfoPanel';
 import Globe from 'globe.gl';
@@ -9,9 +10,10 @@ import Globe from 'globe.gl';
 interface MaritimeMapProps {
   selectedRole: 'cargo_owner' | 'shipping_agency' | 'naval_actor';
   onBack: () => void;
+  onBackToStart: () => void;
 }
 
-const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
+const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack, onBackToStart }) => {
   const [selectedChokepoint, setSelectedChokepoint] = useState<Chokepoint | null>(null);
   const globeContainerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<any>(null);
@@ -21,8 +23,8 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
 
     console.log('Initializing Globe.gl');
 
-    // Initialize Globe.gl
-    const globe = Globe()(globeContainerRef.current)
+    // Initialize Globe.gl with OpenStreetMap tiles
+    const globe = new Globe(globeContainerRef.current)
       .globeTileEngineUrl((x, y, l) => `https://tile.openstreetmap.org/${l}/${x}/${y}.png`)
       .backgroundColor('rgba(0,0,0,0)')
       .showAtmosphere(true)
@@ -35,11 +37,11 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     // Set initial camera position
     globe.pointOfView({ lat: 20, lng: 0, altitude: 2 });
 
-    // Add shipping routes
-    addShippingRoutes(globe);
+    // Add shipping routes with realistic ocean paths
+    addRealisticShippingRoutes(globe);
 
-    // Add chokepoints
-    addChokepoints(globe);
+    // Add chokepoints with new styling
+    addChokepointsWithNewStyling(globe);
 
     console.log('Globe.gl initialized successfully');
 
@@ -57,7 +59,6 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     return () => {
       window.removeEventListener('resize', handleResize);
       if (globeRef.current) {
-        // Clean up globe instance
         try {
           globeRef.current._destructor && globeRef.current._destructor();
         } catch (error) {
@@ -68,77 +69,124 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     };
   }, []);
 
-  const addShippingRoutes = (globe: any) => {
-    // Define major shipping routes connecting chokepoints
-    const shippingRoutes = [
-      // Europe-Asia route via Suez
-      { from: 'english_channel', to: 'strait_of_gibraltar' },
-      { from: 'strait_of_gibraltar', to: 'suez_canal' },
-      { from: 'suez_canal', to: 'bab_el_mandeb' },
-      { from: 'bab_el_mandeb', to: 'strait_of_hormuz' },
-      { from: 'strait_of_hormuz', to: 'strait_of_malacca' },
-      
+  const addRealisticShippingRoutes = (globe: any) => {
+    // Define realistic shipping routes that follow ocean paths
+    const oceanRoutes = [
       // Trans-Atlantic routes
-      { from: 'english_channel', to: 'panama_canal' },
-      { from: 'strait_of_gibraltar', to: 'panama_canal' },
+      { from: 'english_channel', to: 'panama_canal', waypoints: [
+        [50.0755, -1.8059], [45.0, -10.0], [35.0, -25.0], [20.0, -40.0], [15.0, -60.0], [9.0819, -79.8068]
+      ]},
+      { from: 'strait_of_gibraltar', to: 'panama_canal', waypoints: [
+        [36.1408, -5.3536], [30.0, -15.0], [25.0, -30.0], [15.0, -50.0], [12.0, -70.0], [9.0819, -79.8068]
+      ]},
+      
+      // Europe to Asia via Suez
+      { from: 'english_channel', to: 'strait_of_gibraltar', waypoints: [
+        [50.0755, -1.8059], [45.0, -5.0], [40.0, -7.0], [36.1408, -5.3536]
+      ]},
+      { from: 'strait_of_gibraltar', to: 'suez_canal', waypoints: [
+        [36.1408, -5.3536], [35.0, 5.0], [34.0, 15.0], [32.0, 25.0], [30.5234, 32.3426]
+      ]},
+      { from: 'suez_canal', to: 'bab_el_mandeb', waypoints: [
+        [30.5234, 32.3426], [25.0, 35.0], [20.0, 40.0], [15.0, 42.0], [12.5840, 43.3183]
+      ]},
+      { from: 'bab_el_mandeb', to: 'strait_of_hormuz', waypoints: [
+        [12.5840, 43.3183], [15.0, 50.0], [20.0, 55.0], [25.0, 56.0], [26.5669, 56.2788]
+      ]},
+      { from: 'strait_of_hormuz', to: 'strait_of_malacca', waypoints: [
+        [26.5669, 56.2788], [20.0, 65.0], [10.0, 75.0], [5.0, 85.0], [2.0, 95.0], [4.1815, 100.1002]
+      ]},
       
       // Pacific routes
-      { from: 'panama_canal', to: 'strait_of_malacca' },
+      { from: 'panama_canal', to: 'strait_of_malacca', waypoints: [
+        [9.0819, -79.8068], [0.0, -100.0], [-10.0, -120.0], [-5.0, -140.0], [0.0, -160.0], [10.0, 180.0], [5.0, 120.0], [4.1815, 100.1002]
+      ]},
       
       // Black Sea connections
-      { from: 'bosporus_strait', to: 'suez_canal' },
-      { from: 'bosporus_strait', to: 'strait_of_gibraltar' },
+      { from: 'bosporus_strait', to: 'suez_canal', waypoints: [
+        [41.1211, 29.0497], [38.0, 30.0], [35.0, 31.0], [32.0, 32.0], [30.5234, 32.3426]
+      ]},
       
       // Baltic connections
-      { from: 'danish_straits', to: 'english_channel' },
-      { from: 'danish_straits', to: 'bosporus_strait' },
+      { from: 'danish_straits', to: 'english_channel', waypoints: [
+        [55.6761, 12.5683], [54.0, 8.0], [52.0, 4.0], [51.0, 0.0], [50.0755, -1.8059]
+      ]},
     ];
 
-    const routeData = shippingRoutes.map(route => {
+    const routeData = [];
+
+    oceanRoutes.forEach(route => {
       const fromChokepoint = chokepoints.find(c => c.id === route.from);
       const toChokepoint = chokepoints.find(c => c.id === route.to);
       
-      if (fromChokepoint && toChokepoint) {
-        return {
-          startLat: fromChokepoint.lat,
-          startLng: fromChokepoint.lng,
-          endLat: toChokepoint.lat,
-          endLng: toChokepoint.lng,
-          color: '#00FFFF',
-          strokeWidth: 2
-        };
+      if (fromChokepoint && toChokepoint && route.waypoints) {
+        // Create smooth path through waypoints
+        for (let i = 0; i < route.waypoints.length - 1; i++) {
+          routeData.push({
+            startLat: route.waypoints[i][0],
+            startLng: route.waypoints[i][1],
+            endLat: route.waypoints[i + 1][0],
+            endLng: route.waypoints[i + 1][1],
+            color: '#00CCFF',
+            strokeWidth: 1.5
+          });
+        }
       }
-      return null;
-    }).filter(Boolean);
+    });
 
     globe.arcsData(routeData)
       .arcColor('color')
       .arcStroke('strokeWidth')
-      .arcAltitude(0.1)
-      .arcDashLength(0.4)
-      .arcDashGap(0.2)
-      .arcDashAnimateTime(3000);
+      .arcAltitude(0.05)
+      .arcDashLength(0.3)
+      .arcDashGap(0.1)
+      .arcDashAnimateTime(2000);
   };
 
-  const addChokepoints = (globe: any) => {
+  const addChokepointsWithNewStyling = (globe: any) => {
     const chokepointData = chokepoints.map(chokepoint => ({
       lat: chokepoint.lat,
       lng: chokepoint.lng,
-      size: 12,
-      color: '#FFFF00',
+      size: 6,
+      color: '#FFD700', // Yellow background
       label: chokepoint.name,
       chokepoint: chokepoint
     }));
 
+    // Add yellow square markers
     globe.pointsData(chokepointData)
       .pointColor('color')
       .pointRadius('size')
       .pointAltitude(0.02)
       .pointLabel(d => d.label)
+      .pointResolution(8) // Make squares instead of circles
       .onPointClick((point: any) => {
         console.log('Chokepoint clicked:', point.chokepoint.name);
         handleChokepointClick(point.chokepoint);
       });
+
+    // Add red dots in center of yellow squares
+    const redDotData = chokepoints.map(chokepoint => ({
+      lat: chokepoint.lat,
+      lng: chokepoint.lng,
+      size: 2,
+      color: '#FF0000', // Red center dot
+      chokepoint: chokepoint
+    }));
+
+    globe.htmlElementsData(redDotData)
+      .htmlElement(d => {
+        const el = document.createElement('div');
+        el.style.cssText = `
+          width: 4px;
+          height: 4px;
+          background-color: #FF0000;
+          border-radius: 50%;
+          pointer-events: none;
+        `;
+        return el;
+      })
+      .htmlAltitude(0.021);
   };
 
   const handleChokepointClick = (chokepoint: Chokepoint) => {
@@ -146,7 +194,6 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     setSelectedChokepoint(chokepoint);
     
     if (globeRef.current) {
-      // Zoom to chokepoint location
       globeRef.current.pointOfView({
         lat: chokepoint.lat,
         lng: chokepoint.lng,
@@ -160,7 +207,6 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     setSelectedChokepoint(null);
     
     if (globeRef.current) {
-      // Zoom out to world view
       globeRef.current.pointOfView({
         lat: 20,
         lng: 0,
@@ -191,8 +237,16 @@ const MaritimeMap: React.FC<MaritimeMapProps> = ({ selectedRole, onBack }) => {
     <div className="h-screen flex bg-slate-900">
       {/* Map Area */}
       <div className="flex-1 relative">
-        {/* Header */}
-        <div className="absolute top-4 left-4 z-10">
+        {/* Header with Back to Start button */}
+        <div className="absolute top-4 left-4 z-10 flex space-x-3">
+          <Button
+            onClick={onBackToStart}
+            className="bg-yellow-400 hover:bg-yellow-500 text-gray-800 shadow-lg px-4 py-2 rounded-full flex items-center space-x-2"
+          >
+            <Home className="w-4 h-4" />
+            <span>Back to Start</span>
+          </Button>
+          
           <Card className="bg-white/90 backdrop-blur-sm">
             <CardContent className="p-4 flex items-center space-x-3">
               <div className={`px-3 py-1 rounded-full text-white text-sm ${getRoleColor(selectedRole)}`}>
