@@ -45,7 +45,7 @@ const IntroductionPage: React.FC<IntroductionPageProps> = ({ onContinue }) => {
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">Role-Based Analysis</h3>
               <p className="text-blue-200 text-sm">
-                View insights from the perspective of cargo owners, shipping agencies, or naval actors.
+                View insights from the perspective of cargo owners or shipping agencies.
               </p>
             </div>
             
